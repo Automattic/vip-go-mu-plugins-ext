@@ -1,7 +1,11 @@
 const { default: axios } = require('axios');
 const fs = require('fs');
+const { execSync} = require('child_process');
 
-const configFile = fs.readFileSync('./config.json', 'utf8');
+const CONFIG_FILE = './config.json';
+const JETPACK_REPO = 'https://github.com/Automattic/jetpack-production';
+
+const configFile = fs.readFileSync(CONFIG_FILE, 'utf8');
 const config = JSON.parse(configFile);
 console.log('Config', config);
 
@@ -50,38 +54,72 @@ async function checkVersionExists(version) {
     }
 }
 
+async function findPatch(minor) {
+    let currentPatch = 'beta';
+    let lastPatch = '';
+    let foundLastPatch = false;
+
+    while (!foundLastPatch) {
+        const version = formatVersion(minor, currentPatch);
+
+        const exists = await checkVersionExists(version);
+        if (exists) {
+            lastPatch = currentPatch;
+            currentPatch = incrementPatchVersion(currentPatch);
+        } else {
+            if (currentPatch === 'beta') {
+                return null;
+            }
+            foundLastPatch = true;
+        }
+    }
+    return lastPatch;
+}
+
+async function maybeUpdateVersion(folder, version) {
+    if (config.current[folder] === version) {
+        console.log(`${folder} already up to date`);
+        return;
+    } else {
+        if (config.current[folder]) {
+            // update
+        } else {
+            // add
+            const command = `git subtree add -P ${folder} --squash ${JETPACK_REPO} ${version} -m "Add jetpack ${folder} subtree with tag ${version}"`;
+            execSync(command);
+        }
+        config.current[folder] = version;
+    }
+}
+
+function persistConfig() {
+    console.log('Persisting config', config);
+
+    fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2));
+}
+
 async function main() {
-
-
     let currentMinor = config.lowestVersion;
     let foundLastMinor = false;
 
     while (!foundLastMinor) {
-        let currentPatch = 'beta';
-        let lastPatch = '';
-        let foundLastPatch = false;
+
         console.log('checking', currentMinor);
-
-        while (!foundLastPatch) {
-            const version =formatVersion(currentMinor, currentPatch);
-
-            const exists = await checkVersionExists(version);
-            if (exists) {
-                lastPatch = currentPatch;
-                currentPatch = incrementPatchVersion(currentPatch);
-            } else {
-                if (currentPatch === 'beta') {
-                    foundLastMinor = true;
-                }
-                foundLastPatch = true;
-            }
-        }
-        if (!foundLastMinor) {
-            const version = formatVersion(currentMinor, lastPatch);
+        const patch = await findPatch(currentMinor);
+        if (patch === null) {
+            console.log('Not found');
+            foundLastMinor = true;
+        } else {
+            const version = formatVersion(currentMinor, patch);
             console.log('Found:', version);
+
+            await maybeUpdateVersion(currentMinor, version);
+
+            currentMinor = incrementVersion(currentMinor);
         }
-        currentMinor = incrementVersion(currentMinor);
     }
+
+    persistConfig();
 }
 
 main();
