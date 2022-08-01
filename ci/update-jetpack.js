@@ -138,6 +138,8 @@ async function main() {
         }
     }
 
+    execSync('git push');
+
     persistConfig();
 }
 
