@@ -1,0 +1,1 @@
+# vip-go-mu-plugins-ext
