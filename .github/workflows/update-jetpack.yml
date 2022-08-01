@@ -1,0 +1,24 @@
+name: Update Jetpack
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  update-jetpack:
+    runs-on: ubuntu-latest
+    name: A job to update jetpack
+    steps:
+      - name: Check out source code
+        uses: actions/checkout@v3.0.2
+        with:
+          submodules: recursive
+
+      - name: Setup Node
+        uses: actions/setup-node@v3.4.1
+
+      - name: Run update
+        run: node ./ci/update-jetpack.js
+
