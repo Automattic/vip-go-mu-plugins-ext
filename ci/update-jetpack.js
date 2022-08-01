@@ -104,11 +104,17 @@ function persistConfig() {
 
 
 function maybeConfigGit() {
-    const email = execSync('git config user.email').toString().trim();
+    try {
 
-    if (!email) {
-        execSync('git config user.email "Jetpack@update.bot"');
-        execSync('git config user.name "Jetpack Update Bot"');
+        const email = execSync('git config user.email').toString().trim();
+
+        if (!email) {
+            execSync('git config user.email "Jetpack@update.bot"');
+            execSync('git config user.name "Jetpack Update Bot"');
+        }
+    } catch(e) {
+        console.log('Error configuring git', e);
+        throw e;
     }
 }
 
