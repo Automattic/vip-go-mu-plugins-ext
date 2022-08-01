@@ -102,10 +102,21 @@ function persistConfig() {
     fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2));
 }
 
+
+function maybeConfigGit() {
+    const email = execSync('git config user.email').toString().trim();
+
+    if (!email) {
+        execSync('git config user.email "Jetpack@update.bot"');
+        execSync('git config user.name "Jetpack Update Bot"');
+    }
+}
+
 async function main() {
+    maybeConfigGit();
+
     let currentMinor = config.lowestVersion;
     let foundLastMinor = false;
-
     while (!foundLastMinor) {
 
         console.log('checking', currentMinor);
