@@ -1,6 +1,6 @@
 const { default: axios } = require('axios');
 const fs = require('fs');
-const { execSync} = require('child_process');
+const { execSync, spawnSync} = require('child_process');
 
 const CONFIG_FILE = './config.json';
 const JETPACK_REPO = 'https://github.com/Automattic/jetpack-production';
@@ -106,11 +106,11 @@ function persistConfig() {
 function maybeConfigGit() {
     try {
 
-        const email = execSync('git config user.email').toString().trim();
+        const email = spawnSync('git config user.email').toString().trim();
 
         if (!email) {
-            execSync('git config user.email "Jetpack@update.bot"');
-            execSync('git config user.name "Jetpack Update Bot"');
+            spawnSync('git config user.email "Jetpack@update.bot"');
+            spawnSync('git config user.name "Jetpack Update Bot"');
         }
     } catch(e) {
         console.log('Error configuring git', e);
