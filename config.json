@@ -1,5 +1,5 @@
 {
-  "lowestVersion": "10.9",
+  "lowestVersion": "9.4",
   "skip": [
     "9.5",
     "9.6",
