@@ -19,5 +19,7 @@ jobs:
         uses: actions/setup-node@v3.4.1
 
       - name: Run update
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
         run: node ./ci/update-jetpack.js
 
