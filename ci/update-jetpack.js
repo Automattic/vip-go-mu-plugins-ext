@@ -76,12 +76,14 @@ async function findPatch(minor) {
     return lastPatch;
 }
 
-async function maybeUpdateVersion(folder, version) {
-    if (config.current[folder] === version) {
-        console.log(`${folder} already up to date`);
-        return;
+async function maybeUpdateVersion(minorVersion, version) {
+    const folder = `jetpack-${minorVersion}`;
+
+    if (config.current[minorVersion] === version) {
+        console.log(`${minorVersion} already up to date`);
+        return false;
     } else {
-        if (config.current[folder]) {
+        if (config.current[minorVersion]) {
             // update
             execSync(`git rm -r ${folder}`);
             execSync(`git commit -m "Removing ${folder} for subtree replacement to ${version}`);
@@ -92,7 +94,8 @@ async function maybeUpdateVersion(folder, version) {
             const command = `git subtree add -P ${folder} --squash ${JETPACK_REPO} ${version} -m "Add jetpack ${folder} subtree with tag ${version}"`;
             execSync(command);
         }
-        config.current[folder] = version;
+        config.current[minorVersion] = version;
+        return true;
     }
 }
 
@@ -100,6 +103,8 @@ function persistConfig() {
     console.log('Persisting config', config);
 
     fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2));
+
+    execSync('git commit -avm "Update config current"');
 }
 
 
@@ -121,6 +126,7 @@ async function main() {
 
     let currentMinor = config.lowestVersion;
     let foundLastMinor = false;
+    let updatedSomething = false;
     while (!foundLastMinor) {
 
         console.log('checking', currentMinor);
@@ -132,15 +138,17 @@ async function main() {
             const version = formatVersion(currentMinor, patch);
             console.log('Found:', version);
 
-            await maybeUpdateVersion(currentMinor, version);
+            const updated = await maybeUpdateVersion(currentMinor, version);
+            updatedSomething = updated || updatedSomething;
 
             currentMinor = incrementVersion(currentMinor);
         }
     }
 
-    execSync('git push');
-
-    persistConfig();
+    if (updatedSomething) {
+        persistConfig();
+        execSync('git push');
+    }
 }
 
 main();
