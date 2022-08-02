@@ -3,8 +3,8 @@ name: Update Jetpack
 on:
   workflow_dispatch:
   schedule:
-    # Runs every 40th minute of every hour (one per hour)
-    - cron:  '*/5 * * * *'
+    # Runs every 0th minute of every hour (once per hour)
+    - cron:  '0 * * * *'
 
 permissions: write-all
 
