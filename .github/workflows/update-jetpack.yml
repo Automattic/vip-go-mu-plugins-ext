@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   schedule:
     # Runs every 40th minute of every hour (one per hour)
-    - cron:  '40 * * * *'
+    - cron:  '*/5 * * * *'
 
 permissions: write-all
 
