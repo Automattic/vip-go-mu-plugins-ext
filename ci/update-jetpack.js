@@ -76,6 +76,17 @@ async function findPatch(minor) {
     return lastPatch;
 }
 
+async function pingSlack(message) {
+    if (process.env.SLACK_WEBHOOK) {
+        const payload = {
+            text: message,
+        };
+        await axios.post(process.env.SLACK_WEBHOOK, payload);
+    } else {
+        throw new Error('No slack webhook configured');
+    }
+}
+
 async function maybeUpdateVersion(minorVersion, version) {
     const folder = `jetpack-${minorVersion}`;
 
@@ -94,6 +105,7 @@ async function maybeUpdateVersion(minorVersion, version) {
             const command = `git subtree add -P ${folder} --squash ${JETPACK_REPO} ${version} -m "Add jetpack ${folder} subtree with tag ${version}"`;
             execSync(command);
         }
+        await pingSlack(`Updated ${folder} to ${version}\nhttps://github.com/Automattic/vip-go-mu-plugins-ext/commits/trunk`);
         config.current[minorVersion] = version;
         return true;
     }
