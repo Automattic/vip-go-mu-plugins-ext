@@ -97,7 +97,7 @@ async function maybeUpdateVersion(minorVersion, version) {
         if (config.current[minorVersion]) {
             // update
             execSync(`git rm -r ${folder}`);
-            execSync(`git commit -m "Removing ${folder} for subtree replacement to ${version}`);
+            execSync(`git commit -m "Removing ${folder} for subtree replacement to ${version}"`);
             const command = `git subtree add -P ${folder} --squash ${JETPACK_REPO} ${version} -m "Update jetpack ${folder} subtree with tag ${version}"`;
             execSync(command);
         } else {
