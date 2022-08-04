@@ -1,0 +1,33 @@
+.dockerignore
+
+.git
+.github
+.gitignore
+
+README.md
+
+/ci/
+
+/jetpack/bin/build-asset-cdn-json.php
+/jetpack/docker/
+/jetpack/docs/
+/jetpack/tests/
+/jetpack/to-test.md
+/jetpack/tools/
+
+# A few files in Jetpack >9.7 that are giving linting errors due to incompatible PHP versions
+/jetpack*/vendor/automattic/jetpack-password-checker/vendor/symfony/polyfill-ctype/bootstrap80.php
+/jetpack*/vendor/automattic/jetpack-password-checker/vendor/symfony/polyfill-intl-grapheme/bootstrap80.php
+/jetpack*/vendor/automattic/jetpack-password-checker/vendor/symfony/polyfill-intl-normalizer/bootstrap80.php
+/jetpack*/vendor/automattic/jetpack-password-checker/vendor/symfony/polyfill-mbstring/bootstrap80.php
+/jetpack*/vendor/automattic/jetpack-password-checker/vendor/symfony/polyfill-php73/Resources/stubs/JsonException.php
+/jetpack*/vendor/automattic/jetpack-password-checker/vendor/sebastian/resource-operations/build/generate.php
+
+# Parse.ly WordPress Integration
+/wp-parsely-*/.prettierrc
+/wp-parsely-*/bin
+/wp-parsely-*/CHANGELOG.md
+/wp-parsely-*/WINDOWS.md
+/wp-parsely-*/init.py
+/wp-parsely-*/tests
+/wp-parsely-*/phpunit-integration.xml.dist
