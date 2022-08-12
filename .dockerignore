@@ -1,4 +1,5 @@
 .dockerignore
+./config.json
 
 .git
 .github
