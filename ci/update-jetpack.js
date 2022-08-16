@@ -4,6 +4,7 @@ const { execSync} = require('child_process');
 
 const CONFIG_FILE = './config.json';
 const JETPACK_REPO = 'https://github.com/Automattic/jetpack-production';
+const JETPACK_FOLDER_PREFIX = 'jetpack-';
 
 const configFile = fs.readFileSync(CONFIG_FILE, 'utf8');
 const config = JSON.parse(configFile);
@@ -23,6 +24,54 @@ function incrementVersion(version) {
     }
 
     return result;
+}
+
+function parseVersion( version ) {
+    return version.split(/[.-]/).map(part => isNaN(Number(part)) ? part : Number(part));
+}
+
+function compareInt(a,b) {
+    if ( a === b ) {
+        return 0;
+    }
+    if ( a > b ) {
+        return 1;
+    }
+    return -1;
+}
+
+function compareVersions(a,b) {
+    if ( a === b ) {
+        return 0;
+    }
+    const aParts = parseVersion(a)
+    const bParts = parseVersion(b)
+
+    const majorCmpr = compareInt(aParts[0], bParts[0]);
+    if ( majorCmpr !== 0 ) {
+        return majorCmpr;
+    }
+
+    const minorCmpr = compareInt(aParts[1], bParts[1]);
+    if ( minorCmpr !== 0 ) {
+        return minorCmpr;
+    }
+
+    if ( aParts.length === 3 && aParts[2] === 'beta' ) {
+        return -1;
+    }
+    if ( bParts.length === 3 && bParts[2] === 'beta' ) {
+        return 1;
+    }
+
+    if ( aParts.length === 2) {
+        return -1;
+    }
+    if ( bParts.length === 2) {
+        return 1;
+    }
+
+    return compareInt(aParts[2], bParts[2]);
 }
 
 function incrementPatchVersion(version) {
@@ -88,7 +137,7 @@ async function pingSlack(message) {
 }
 
 async function maybeUpdateVersion(minorVersion, version) {
-    const folder = `jetpack-${minorVersion}`;
+    const folder = `${JETPACK_FOLDER_PREFIX}${minorVersion}`;
 
     if (config.current[minorVersion] === version) {
         console.log(`${minorVersion} already up to date`);
@@ -133,9 +182,14 @@ function maybeConfigGit() {
     }
 }
 
-async function main() {
-    maybeConfigGit();
+function removeFolder(folderName) {
+    console.log(`Removing ${folderName}`);
+    fs.rmdirSync( folderName, { recursive: true } );
+    execSync( `git add ${ folderName }` )
+    execSync( `git commit -m "Removing ${folderName}"`);
+}
 
+async function maybeUpdateVersions() {
     let currentMinor = config.lowestVersion;
     let foundLastMinor = false;
     let updatedSomething = false;
@@ -155,21 +209,50 @@ async function main() {
             currentMinor = incrementVersion(currentMinor);
         }
     }
+    return updatedSomething;
+}
 
-    console.log('Checking skipped versions');
-    for (const skippedVersion of config.skip) {
-        const folderName = `jetpack-${skippedVersion}`;
-        if ( fs.existsSync( folderName ) ) {
-            console.log(`${folderName} exists, removing`);
-            fs.rmdirSync( folderName, { recursive: true } );
-            execSync( `git add ${ folderName }` )
-            execSync( `git commit -m "Removing ${folderName}"`);
+function isMinorSupported(minor) {
+    if ( config.skip.includes(minor) ) {
+        return false;
+    }
 
-            delete config.current[skippedVersion]
+    if ( compareVersions(minor, config.lowestVersion) < 0 ) {
+        return false;
+    }
+
+    return true;
+
+}
+
+async function maybeDeleteRemovedVersions() {
+    console.log('Checking existing folders');
+
+    let updatedSomething = false;
+    const folders = fs.readdirSync('./');
+    const jetpackFolders = folders.filter(folder => folder.startsWith(JETPACK_FOLDER_PREFIX));
+    for (const folder of jetpackFolders) {
+        const [, minor] = folder.split(JETPACK_FOLDER_PREFIX);
+        const supported = isMinorSupported(minor);
+        if (!supported) {
+            removeFolder(folder);
+
+            delete config.current[minor]
             updatedSomething = true;
-            await pingSlack(`Removed ${folderName}\nhttps://github.com/Automattic/vip-go-mu-plugins-ext/commits/trunk`);
+            await pingSlack(`Removed ${folder}\nhttps://github.com/Automattic/vip-go-mu-plugins-ext/commits/trunk`);
         }
     }
+
+    return updatedSomething;
+}
+
+async function main() {
+    maybeConfigGit();
+
+    let updatedSomething = false;
+
+    updatedSomething = await maybeUpdateVersions();
+    updatedSomething = await maybeDeleteRemovedVersions() || updatedSomething;
 
     if (updatedSomething) {
         persistConfig();
