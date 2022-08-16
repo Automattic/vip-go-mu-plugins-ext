@@ -129,8 +129,14 @@ async function pingSlack(message) {
 async function maybeUpdateVersion(minorVersion, version) {
     const folder = `${JETPACK_FOLDER_PREFIX}${minorVersion}`;
 
-    if (config.current[minorVersion] === version) {
-        console.log(`${minorVersion} already up to date`);
+    const versionCmp = compareVersions(version,config.current[minorVersion]);
+
+    if (versionCmp <= 0) {
+        if (versionCmp < 0) {
+            console.log(`${minorVersion} tried to downgrade to ${version}, but skipped`);
+        } else {
+            console.log(`${minorVersion} already up to date`);
+        }
         return false;
     } else {
         if (config.current[minorVersion]) {
