@@ -140,7 +140,6 @@ async function main() {
     let foundLastMinor = false;
     let updatedSomething = false;
     while (!foundLastMinor) {
-
         console.log('checking', currentMinor);
         const patch = await findPatch(currentMinor);
         if (patch === null) {
@@ -154,6 +153,21 @@ async function main() {
             updatedSomething = updated || updatedSomething;
 
             currentMinor = incrementVersion(currentMinor);
+        }
+    }
+
+    console.log('Checking skipped versions');
+    for (const skippedVersion of config.skip) {
+        const folderName = `jetpack-${skippedVersion}`;
+        if ( fs.existsSync( folderName ) ) {
+            console.log(`${folderName} exists, removing`);
+            fs.rmdirSync( folderName, { recursive: true } );
+            execSync( `git add ${ folderName }` )
+            execSync( `git commit -m "Removing ${folderName}"`);
+
+            delete config.current[skippedVersion]
+            updatedSomething = true;
+            await pingSlack(`Removed ${folderName}\nhttps://github.com/Automattic/vip-go-mu-plugins-ext/commits/trunk`);
         }
     }
 
