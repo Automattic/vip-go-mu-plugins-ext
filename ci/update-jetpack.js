@@ -30,16 +30,6 @@ function parseVersion( version ) {
     return version.split(/[.-]/).map(part => isNaN(Number(part)) ? part : Number(part));
 }
 
-function compareInt(a,b) {
-    if ( a === b ) {
-        return 0;
-    }
-    if ( a > b ) {
-        return 1;
-    }
-    return -1;
-}
-
 function compareVersions(a,b) {
     if ( a === b ) {
         return 0;
@@ -47,12 +37,12 @@ function compareVersions(a,b) {
     const aParts = parseVersion(a)
     const bParts = parseVersion(b)
 
-    const majorCmpr = compareInt(aParts[0], bParts[0]);
+    const majorCmpr = aParts[0] - bParts[0];
     if ( majorCmpr !== 0 ) {
         return majorCmpr;
     }
 
-    const minorCmpr = compareInt(aParts[1], bParts[1]);
+    const minorCmpr = aParts[1] - bParts[1];
     if ( minorCmpr !== 0 ) {
         return minorCmpr;
     }
@@ -71,7 +61,7 @@ function compareVersions(a,b) {
         return 1;
     }
 
-    return compareInt(aParts[2], bParts[2]);
+    return aParts[2] - bParts[2];
 }
 
 function incrementPatchVersion(version) {
