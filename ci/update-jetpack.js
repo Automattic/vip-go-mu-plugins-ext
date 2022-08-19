@@ -19,10 +19,6 @@ function incrementVersion(version) {
         result = `${major}.${minor + 1}`;
     }
 
-    if (config.skip.includes(result)) {
-        return incrementVersion(result);
-    }
-
     return result;
 }
 
@@ -190,20 +186,24 @@ async function maybeUpdateVersions() {
     let foundLastMinor = false;
     let updatedSomething = false;
     while (!foundLastMinor) {
-        console.log('checking', currentMinor);
-        const patch = await findPatch(currentMinor);
-        if (patch === null) {
-            console.log('Not found');
-            foundLastMinor = true;
+        if (config.skip.includes(currentMinor) || config.ignore.includes(currentMinor)) {
+            console.log('Skipping', currentMinor);
         } else {
-            const version = formatVersion(currentMinor, patch);
-            console.log('Found:', version);
+            console.log('Checking', currentMinor);
+            const patch = await findPatch(currentMinor);
+            if (patch === null) {
+                console.log('Not found');
+                foundLastMinor = true;
+            } else {
+                const version = formatVersion(currentMinor, patch);
+                console.log('Found:', version);
 
-            const updated = await maybeUpdateVersion(currentMinor, version);
-            updatedSomething = updated || updatedSomething;
+                const updated = await maybeUpdateVersion(currentMinor, version);
+                updatedSomething = updated || updatedSomething;
 
-            currentMinor = incrementVersion(currentMinor);
+            }
         }
+        currentMinor = incrementVersion(currentMinor);
     }
     return updatedSomething;
 }
