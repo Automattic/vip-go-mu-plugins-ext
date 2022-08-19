@@ -20,11 +20,11 @@ Hopefully the only upkeep we need to do is to change [config](./config.json). An
 
 ## `lowestVersion`
 
-The version to start scanning Jetpack tags from.
+The version to start scanning Jetpack tags from. Updater will delete versions lower than `lowestVersion`.
 
 ## `skip`
 
-List of versions to be excluded from the updater. This is used for higher versions that `lowestVersion` that we don't need.
+List of versions to be excluded from the updater. This is used for higher versions that `lowestVersion` that we don't need. Updater will delete this version if present.
 
 ## `ignore`
 
