@@ -125,31 +125,29 @@ async function pingSlack(message) {
 async function maybeUpdateVersion(minorVersion, version) {
     const folder = `${JETPACK_FOLDER_PREFIX}${minorVersion}`;
 
-    const versionCmp = compareVersions(version,config.current[minorVersion]);
-
-    if (versionCmp <= 0) {
+    if ( config.current[minorVersion] ) {
+        const versionCmp = compareVersions(version,config.current[minorVersion]);
         if (versionCmp < 0) {
             console.log(`${minorVersion} tried to downgrade to ${version}, but skipped`);
-        } else {
+            return false;
+        } else if (versionCmp === 0) {
             console.log(`${minorVersion} already up to date`);
+            return false;
         }
-        return false;
+
+        // update
+        execSync(`git rm -r ${folder}`);
+        execSync(`git commit -m "Removing ${folder} for subtree replacement to ${version}"`);
+        const command = `git subtree add -P ${folder} --squash ${JETPACK_REPO} ${version} -m "Update jetpack ${folder} subtree with tag ${version}"`;
+        execSync(command);
     } else {
-        if (config.current[minorVersion]) {
-            // update
-            execSync(`git rm -r ${folder}`);
-            execSync(`git commit -m "Removing ${folder} for subtree replacement to ${version}"`);
-            const command = `git subtree add -P ${folder} --squash ${JETPACK_REPO} ${version} -m "Update jetpack ${folder} subtree with tag ${version}"`;
-            execSync(command);
-        } else {
-            // add
-            const command = `git subtree add -P ${folder} --squash ${JETPACK_REPO} ${version} -m "Add jetpack ${folder} subtree with tag ${version}"`;
-            execSync(command);
-        }
-        await pingSlack(`Updated ${folder} to ${version}\nhttps://github.com/Automattic/vip-go-mu-plugins-ext/commits/trunk`);
-        config.current[minorVersion] = version;
-        return true;
+        // add
+        const command = `git subtree add -P ${folder} --squash ${JETPACK_REPO} ${version} -m "Add jetpack ${folder} subtree with tag ${version}"`;
+        execSync(command);
     }
+    await pingSlack(`Updated ${folder} to ${version}\nhttps://github.com/Automattic/vip-go-mu-plugins-ext/commits/trunk`);
+    config.current[minorVersion] = version;
+    return true;
 }
 
 function persistConfig() {
