@@ -135,9 +135,6 @@ async function maybeUpdateVersion(minorVersion, version) {
             return false;
         }
 
-    }
-
-    if (config.current[minorVersion]) {
         // update
         execSync(`git rm -r ${folder}`);
         execSync(`git commit -m "Removing ${folder} for subtree replacement to ${version}"`);
