@@ -49,13 +49,13 @@ class CookieState {
 				if ( strlen( $v ) ) {
 					$state[ $k ] = $v;
 				}
-				setcookie( "jetpackState[$k]", false, 0, $path, $domain, is_ssl(), true );
+				setcookie( "jetpackState[$k]", false, 0, $path, $domain );
 			}
 		}
 
 		if ( $restate ) {
 			foreach ( $state as $k => $v ) {
-				setcookie( "jetpackState[$k]", $v, 0, $path, $domain, is_ssl(), true );
+				setcookie( "jetpackState[$k]", $v, 0, $path, $domain );
 			}
 			return;
 		}
@@ -76,7 +76,7 @@ class CookieState {
 			$state[ $key ] = $value;
 			if ( ! headers_sent() ) {
 				if ( $this->should_set_cookie( $key ) ) {
-					setcookie( "jetpackState[$key]", $value, 0, $path, $domain, is_ssl(), true );
+					setcookie( "jetpackState[$key]", $value, 0, $path, $domain );
 				}
 			}
 		}
