@@ -127,16 +127,16 @@ class Users {
 		if ( $user_id === $master_user_id && 'administrator' !== $role ) {
 			$query      = new \WP_User_Query(
 				array(
-					'fields'  => array( 'ID' ),
+					'fields'  => array( 'id' ),
 					'role'    => 'administrator',
-					'orderby' => 'ID',
+					'orderby' => 'id',
 					'exclude' => array( $master_user_id ),
 				)
 			);
 			$new_master = false;
 			$connection = new Jetpack_Connection();
 			foreach ( $query->results as $result ) {
-				$found_user_id = absint( $result->ID );
+				$found_user_id = absint( $result->id );
 				if ( $found_user_id && $connection->is_user_connected( $found_user_id ) ) {
 					$new_master = $found_user_id;
 					break;

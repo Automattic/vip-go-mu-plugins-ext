@@ -20,7 +20,6 @@ use Automattic\Jetpack\Post_List\Post_List as Post_List;
 use Automattic\Jetpack\Publicize\Publicize_Setup as Publicize_Setup;
 use Automattic\Jetpack\Search\Initializer as Jetpack_Search_Main;
 use Automattic\Jetpack\Sync\Main as Sync_Main;
-use Automattic\Jetpack\Waf\Waf_Initializer as Jetpack_Waf_Main;
 use Automattic\Jetpack\WordAds\Initializer as Jetpack_WordAds_Main;
 
 /**
@@ -46,7 +45,6 @@ class Config {
 		'search'          => false,
 		'publicize'       => false,
 		'wordads'         => false,
-		'waf'             => false,
 	);
 
 	/**
@@ -127,11 +125,6 @@ class Config {
 		if ( $this->config['wordads'] ) {
 			$this->ensure_class( 'Automattic\Jetpack\WordAds\Initializer' )
 				&& $this->ensure_feature( 'wordads' );
-		}
-
-		if ( $this->config['waf'] ) {
-			$this->ensure_class( 'Automattic\Jetpack\Waf\Waf_Initializer' )
-				&& $this->ensure_feature( 'waf' );
 		}
 	}
 
@@ -267,15 +260,6 @@ class Config {
 	 */
 	protected function enable_wordads() {
 		Jetpack_WordAds_Main::init();
-	}
-
-	/**
-	 * Enables Waf.
-	 */
-	protected function enable_waf() {
-		Jetpack_Waf_Main::init();
-
-		return true;
 	}
 
 	/**

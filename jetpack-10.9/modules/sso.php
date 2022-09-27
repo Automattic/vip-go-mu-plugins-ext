@@ -464,7 +464,7 @@ class Jetpack_SSO {
 			setcookie( 'jetpack_sso_redirect_to', $url, time() + HOUR_IN_SECONDS, COOKIEPATH, COOKIE_DOMAIN, is_ssl(), true );
 		} elseif ( ! empty( $_COOKIE['jetpack_sso_redirect_to'] ) ) {
 			// Otherwise, if it's already set, purge it.
-			setcookie( 'jetpack_sso_redirect_to', ' ', time() - YEAR_IN_SECONDS, COOKIEPATH, COOKIE_DOMAIN, is_ssl(), true );
+			setcookie( 'jetpack_sso_redirect_to', ' ', time() - YEAR_IN_SECONDS, COOKIEPATH, COOKIE_DOMAIN );
 		}
 	}
 
@@ -593,8 +593,7 @@ class Jetpack_SSO {
 				time() - YEAR_IN_SECONDS,
 				COOKIEPATH,
 				COOKIE_DOMAIN,
-				is_ssl(),
-				true
+				is_ssl()
 			);
 		}
 
@@ -605,8 +604,7 @@ class Jetpack_SSO {
 				time() - YEAR_IN_SECONDS,
 				COOKIEPATH,
 				COOKIE_DOMAIN,
-				is_ssl(),
-				true
+				is_ssl()
 			);
 		}
 	}
@@ -625,8 +623,7 @@ class Jetpack_SSO {
 				time() - YEAR_IN_SECONDS,
 				COOKIEPATH,
 				COOKIE_DOMAIN,
-				is_ssl(),
-				true
+				is_ssl()
 			);
 		}
 
@@ -637,8 +634,7 @@ class Jetpack_SSO {
 				time() - YEAR_IN_SECONDS,
 				COOKIEPATH,
 				COOKIE_DOMAIN,
-				is_ssl(),
-				true
+				is_ssl()
 			);
 		}
 
@@ -649,8 +645,7 @@ class Jetpack_SSO {
 				time() - YEAR_IN_SECONDS,
 				COOKIEPATH,
 				COOKIE_DOMAIN,
-				is_ssl(),
-				true
+				is_ssl()
 			);
 		}
 	}
@@ -720,8 +715,7 @@ class Jetpack_SSO {
 				time() + ( 10 * MINUTE_IN_SECONDS ),
 				COOKIEPATH,
 				COOKIE_DOMAIN,
-				is_ssl(),
-				true
+				is_ssl()
 			);
 		}
 
@@ -1184,8 +1178,7 @@ class Jetpack_SSO {
 			time() + WEEK_IN_SECONDS,
 			COOKIEPATH,
 			COOKIE_DOMAIN,
-			is_ssl(),
-			true
+			is_ssl()
 		);
 
 		setcookie(
@@ -1200,8 +1193,7 @@ class Jetpack_SSO {
 			time() + WEEK_IN_SECONDS,
 			COOKIEPATH,
 			COOKIE_DOMAIN,
-			is_ssl(),
-			true
+			is_ssl()
 		);
 	}
 
