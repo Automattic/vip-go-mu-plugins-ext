@@ -72,9 +72,9 @@ function incrementPatchVersion(version, skipBeta = false) {
         return '';
     }
     if (!version) {
-        return 1;
+        return '1';
     }
-    return Number(version) + 1;
+    return (Number(version) + 1) + '';
 }
 
 function formatVersion(minor, patch) {
