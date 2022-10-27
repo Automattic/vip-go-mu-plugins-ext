@@ -115,7 +115,6 @@ async function findPatch(minor) {
         } else {
             currentPatch = incrementPatchVersion(currentPatch, true);
         }
-        console.log('incrementED', currentPatch);
     }
     return lastPatch;
 }
@@ -255,7 +254,7 @@ async function main() {
     let updatedSomething = false;
 
     updatedSomething = await maybeUpdateVersions();
-    // updatedSomething = await maybeDeleteRemovedVersions() || updatedSomething;
+    updatedSomething = await maybeDeleteRemovedVersions() || updatedSomething;
 
     if (updatedSomething) {
         persistConfig();
