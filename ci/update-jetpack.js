@@ -60,12 +60,10 @@ function compareVersions(a,b) {
     return aParts[2] - bParts[2];
 }
 
-const MAX_BETA = 10;
-
-function incrementPatchVersion(version, skipBeta = false) {
+function incrementPatchVersion(version, versionExists) {
     const betaMatch = version.match(/beta(\d+)?/);
-    const betaNumber = betaMatch && betaMatch[1] ? Number(betaMatch[1]) : 1;
-    if (betaMatch && betaNumber < MAX_BETA && !skipBeta) {
+    if (betaMatch && versionExists) {
+        const betaNumber = betaMatch && betaMatch[1] ? Number(betaMatch[1]) : 1;
         return `beta${betaNumber + 1}`;
     }
     if (betaMatch) {
@@ -109,11 +107,11 @@ async function findPatch(minor) {
 
         if (exists) {
             lastPatch = currentPatch;
-            currentPatch = incrementPatchVersion(currentPatch);
+            currentPatch = incrementPatchVersion(currentPatch, true);
         } else if(! currentPatch.startsWith('beta')) {
             foundLastPatch = true;
         } else {
-            currentPatch = incrementPatchVersion(currentPatch, true);
+            currentPatch = incrementPatchVersion(currentPatch, false);
         }
     }
     return lastPatch;
