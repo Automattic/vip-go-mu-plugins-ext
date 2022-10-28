@@ -94,7 +94,6 @@ async function checkVersionExists(version) {
     }
 }
 
-
 async function findPatch(minor) {
     let currentPatch = 'beta';
     let lastPatch = null;
@@ -107,12 +106,11 @@ async function findPatch(minor) {
 
         if (exists) {
             lastPatch = currentPatch;
-            currentPatch = incrementPatchVersion(currentPatch, true);
         } else if(! currentPatch.startsWith('beta')) {
             foundLastPatch = true;
-        } else {
-            currentPatch = incrementPatchVersion(currentPatch, false);
         }
+
+        currentPatch = incrementPatchVersion(currentPatch, exists);
     }
     return lastPatch;
 }
