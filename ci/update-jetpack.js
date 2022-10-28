@@ -60,22 +60,27 @@ function compareVersions(a,b) {
     return aParts[2] - bParts[2];
 }
 
-function incrementPatchVersion(version) {
-    if (version === 'beta') {
+function incrementPatchVersion(version, versionExists) {
+    const betaMatch = version.match(/beta(\d+)?/);
+    if (betaMatch && versionExists) {
+        const betaNumber = betaMatch && betaMatch[1] ? Number(betaMatch[1]) : 1;
+        return `beta${betaNumber + 1}`;
+    }
+    if (betaMatch) {
         return '';
     }
     if (!version) {
-        return 1;
+        return '1';
     }
-    return Number(version) + 1;
+    return (Number(version) + 1) + '';
 }
 
 function formatVersion(minor, patch) {
     if (!patch) {
         return `${minor}`;
     }
-    if (patch === 'beta') {
-        return `${minor}-beta`;
+    if (patch.startsWith('beta')) {
+        return `${minor}-${patch}`;
     }
     return `${minor}.${patch}`;
 }
@@ -91,22 +96,21 @@ async function checkVersionExists(version) {
 
 async function findPatch(minor) {
     let currentPatch = 'beta';
-    let lastPatch = '';
+    let lastPatch = null;
     let foundLastPatch = false;
 
     while (!foundLastPatch) {
         const version = formatVersion(minor, currentPatch);
 
         const exists = await checkVersionExists(version);
+
         if (exists) {
             lastPatch = currentPatch;
-            currentPatch = incrementPatchVersion(currentPatch);
-        } else {
-            if (currentPatch === 'beta') {
-                return null;
-            }
+        } else if(! currentPatch.startsWith('beta')) {
             foundLastPatch = true;
         }
+
+        currentPatch = incrementPatchVersion(currentPatch, exists);
     }
     return lastPatch;
 }
