@@ -1,14 +1,16 @@
+#!/usr/bin/env node
+
 const { default: axios } = require('axios');
 const fs = require('fs');
-const { execSync} = require('child_process');
+const { execSync } = require('child_process');
 
 const CONFIG_FILE = './config.json';
 const JETPACK_REPO = 'https://github.com/Automattic/jetpack-production';
 const JETPACK_FOLDER_PREFIX = 'jetpack-';
 
 const configFile = fs.readFileSync(CONFIG_FILE, 'utf8');
-const config = JSON.parse(configFile);
-console.log('Config', config);
+const globalConfig = JSON.parse(configFile);
+console.log('Config', globalConfig);
 
 function incrementVersion(version) {
     const [major, minor] = version.split('.').map(Number);
@@ -85,7 +87,8 @@ function formatVersion(minor, patch) {
     return `${minor}.${patch}`;
 }
 
-async function checkVersionExists(version) {
+async function checkVersionExists(plugin, version) {
+
     try {
         const exists = await axios.get(`https://github.com/Automattic/jetpack-production/tree/${version}`);
         return exists.status === 200;
@@ -94,7 +97,7 @@ async function checkVersionExists(version) {
     }
 }
 
-async function findPatch(minor) {
+async function findPatch(plugin, minor) {
     let currentPatch = 'beta';
     let lastPatch = null;
     let foundLastPatch = false;
@@ -102,8 +105,7 @@ async function findPatch(minor) {
     while (!foundLastPatch) {
         const version = formatVersion(minor, currentPatch);
 
-        const exists = await checkVersionExists(version);
-
+        const exists = await checkVersionExists(plugin, version);
         if (exists) {
             lastPatch = currentPatch;
         } else if(! currentPatch.startsWith('beta')) {
@@ -126,32 +128,38 @@ async function pingSlack(message) {
     }
 }
 
-async function maybeUpdateVersion(minorVersion, version) {
-    const folder = `${JETPACK_FOLDER_PREFIX}${minorVersion}`;
+async function maybeUpdateVersion(plugin, minorVersion, version) {
+    const config = globalConfig[plugin];
+    const folder = `${config.folderPrefix}${minorVersion}`;
 
-    if ( config.current[minorVersion] ) {
-        const versionCmp = compareVersions(version,config.current[minorVersion]);
-        if (versionCmp < 0) {
-            console.log(`${minorVersion} tried to downgrade to ${version}, but skipped`);
-            return false;
-        } else if (versionCmp === 0) {
-            console.log(`${minorVersion} already up to date`);
-            return false;
+    try {
+        if ( config.current[minorVersion] ) {
+            const versionCmp = compareVersions(version,config.current[minorVersion]);
+            if (versionCmp < 0) {
+                console.log(`${minorVersion} tried to downgrade to ${version}, but skipped`);
+                return false;
+            } else if (versionCmp === 0) {
+                console.log(`${minorVersion} already up to date`);
+                return false;
+            }
+
+            // update
+            execSync(`git rm -r ${folder}`);
+            execSync(`git commit -m "Removing ${folder} for subtree replacement to ${version}"`);
+            const command = `git subtree add -P ${folder} --squash ${config.repo} ${version} -m "Update ${ plugin } ${ folder } subtree with tag ${version}"`;
+            execSync(command);
+        } else {
+            // add
+            const command = `git subtree add -P ${folder} --squash ${config.repo} ${version} -m "Add ${ plugin } ${ folder } subtree with tag ${version}"`;
+            execSync(command);
         }
-
-        // update
-        execSync(`git rm -r ${folder}`);
-        execSync(`git commit -m "Removing ${folder} for subtree replacement to ${version}"`);
-        const command = `git subtree add -P ${folder} --squash ${JETPACK_REPO} ${version} -m "Update jetpack ${folder} subtree with tag ${version}"`;
-        execSync(command);
-    } else {
-        // add
-        const command = `git subtree add -P ${folder} --squash ${JETPACK_REPO} ${version} -m "Add jetpack ${folder} subtree with tag ${version}"`;
-        execSync(command);
+        await pingSlack(`Updated ${folder} to ${version}\nhttps://github.com/Automattic/vip-go-mu-plugins-ext/commits/trunk`);
+        config.current[minorVersion] = version;
+        return true;
+    } catch( err ) {
+        console.error(err);
+        return false;
     }
-    await pingSlack(`Updated ${folder} to ${version}\nhttps://github.com/Automattic/vip-go-mu-plugins-ext/commits/trunk`);
-    config.current[minorVersion] = version;
-    return true;
 }
 
 function persistConfig() {
@@ -184,29 +192,35 @@ function removeFolder(folderName) {
 }
 
 async function maybeUpdateVersions() {
-    let currentMinor = config.lowestVersion;
-    let foundLastMinor = false;
     let updatedSomething = false;
-    while (!foundLastMinor) {
-        if (config.skip.includes(currentMinor) || config.ignore.includes(currentMinor)) {
-            console.log('Skipping', currentMinor);
-        } else {
-            console.log('Checking', currentMinor);
-            const patch = await findPatch(currentMinor);
-            if (patch === null) {
-                console.log('Not found');
-                foundLastMinor = true;
+
+    for (const plugin in globalConfig ) {
+        const config = globalConfig[plugin];
+
+        let currentMinor = config.lowestVersion;
+        let foundLastMinor = false
+        while (!foundLastMinor) {
+            if (config.skip.includes(currentMinor) || config.ignore.includes(currentMinor)) {
+                console.log('Skipping', currentMinor);
             } else {
-                const version = formatVersion(currentMinor, patch);
-                console.log('Found:', version);
+                console.log('Checking', currentMinor);
+                const patch = await findPatch(plugin, currentMinor);
+                if (patch === null) {
+                    console.log('Not found');
+                    foundLastMinor = true;
+                } else {
+                    const version = formatVersion(plugin, currentMinor, patch);
+                    console.log('Found:', version);
 
-                const updated = await maybeUpdateVersion(currentMinor, version);
-                updatedSomething = updated || updatedSomething;
+                    const updated = await maybeUpdateVersion(plugin, currentMinor, version);
+                    updatedSomething = updated || updatedSomething;
 
+                }
             }
+            currentMinor = incrementVersion(currentMinor);
         }
-        currentMinor = incrementVersion(currentMinor);
     }
+
     return updatedSomething;
 }
 
@@ -259,4 +273,3 @@ async function main() {
 }
 
 main();
-
