@@ -154,7 +154,7 @@ async function maybeUpdateVersion(plugin, minorVersion, version) {
             execSync(command);
         }
         await pingSlack(`Updated ${folder} to ${version}\nhttps://github.com/Automattic/vip-go-mu-plugins-ext/commits/trunk`);
-        config.current[minorVersion] = version;
+        globalConfig[plugin].current[minorVersion] = version;
         return true;
     } catch( err ) {
         console.error(err);
@@ -163,11 +163,11 @@ async function maybeUpdateVersion(plugin, minorVersion, version) {
 }
 
 function persistConfig() {
-    console.log('Persisting config', config);
+    console.log('Persisting config', globalConfig);
 
-    fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2));
+    fs.writeFileSync(CONFIG_FILE, JSON.stringify(globalConfig, null, 2));
 
-    execSync('git commit -avm "Update config current"');
+    execSync('git commit -avm "Update config.json"');
 }
 
 
@@ -252,7 +252,7 @@ async function maybeDeleteRemovedVersions() {
         if (!supported) {
             removeFolder(folder);
 
-            delete config.current[minor]
+            delete globalConfig.jetpack.current[minor]
             updatedSomething = true;
             await pingSlack(`Removed ${folder}\nhttps://github.com/Automattic/vip-go-mu-plugins-ext/commits/trunk`);
         }
