@@ -228,12 +228,12 @@ async function maybeUpdateVersions() {
     return updatedSomething;
 }
 
-function isMinorSupported(minor) {
-    if (config.skip.includes(minor)) {
+function isMinorSupported(plugin, minor) {
+    if (globalConfig[plugin].skip.includes(minor)) {
         return false;
     }
 
-    if (compareVersions(minor, config.lowestVersion) < 0) {
+    if (compareVersions(minor, globalConfig[plugin].lowestVersion) < 0) {
         return false;
     }
 
@@ -249,7 +249,7 @@ async function maybeDeleteRemovedVersions() {
     const jetpackFolders = folders.filter(folder => folder.startsWith(JETPACK_FOLDER_PREFIX));
     for (const folder of jetpackFolders) {
         const [, minor] = folder.split(JETPACK_FOLDER_PREFIX);
-        const supported = isMinorSupported(minor);
+        const supported = isMinorSupported(plugin, minor);
         if (!supported) {
             removeFolder(folder);
 
