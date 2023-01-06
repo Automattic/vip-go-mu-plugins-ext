@@ -241,6 +241,11 @@ function isMinorSupported(plugin, minor) {
 
 }
 
+/**
+ * TODO: needs actual support for Parse.ly, right now only Jetpack is handled
+ *
+ * @returns
+ */
 async function maybeDeleteRemovedVersions() {
     console.log('Checking existing folders');
 
@@ -249,7 +254,7 @@ async function maybeDeleteRemovedVersions() {
     const jetpackFolders = folders.filter(folder => folder.startsWith(JETPACK_FOLDER_PREFIX));
     for (const folder of jetpackFolders) {
         const [, minor] = folder.split(JETPACK_FOLDER_PREFIX);
-        const supported = isMinorSupported(plugin, minor);
+        const supported = isMinorSupported('jetpack', minor);
         if (!supported) {
             removeFolder(folder);
 
