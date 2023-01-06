@@ -98,7 +98,8 @@ async function checkVersionExists(plugin, version) {
 }
 
 async function findPatch(plugin, minor) {
-    let currentPatch = 'beta';
+    // TODO: this is dumb, and will likely need to be changed when we add next dependency that doesn't follow the semver pattern
+    let currentPatch = plugin === 'parsely' ? '0' : 'beta';
     let lastPatch = null;
     let foundLastPatch = false;
 
