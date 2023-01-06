@@ -77,7 +77,7 @@ function incrementPatchVersion(version, versionExists) {
     return (Number(version) + 1) + '';
 }
 
-function formatVersion(minor, patch) {
+function formatVersion(plugin, minor, patch) {
     if (!patch) {
         return `${minor}`;
     }
@@ -90,7 +90,7 @@ function formatVersion(minor, patch) {
 async function checkVersionExists(plugin, version) {
 
     try {
-        const exists = await axios.get(`https://github.com/Automattic/jetpack-production/tree/${version}`);
+        const exists = await axios.get(`${ globalConfig[plugin].repo }/tree/${version}`);
         return exists.status === 200;
     } catch(e) {
         return false
@@ -103,7 +103,7 @@ async function findPatch(plugin, minor) {
     let foundLastPatch = false;
 
     while (!foundLastPatch) {
-        const version = formatVersion(minor, currentPatch);
+        const version = formatVersion(plugin, minor, currentPatch);
 
         const exists = await checkVersionExists(plugin, version);
         if (exists) {
@@ -195,7 +195,10 @@ async function maybeUpdateVersions() {
     let updatedSomething = false;
 
     for (const plugin in globalConfig ) {
+        console.log(`Updating ${plugin}`);
+
         const config = globalConfig[plugin];
+        console.log( config );
 
         let currentMinor = config.lowestVersion;
         let foundLastMinor = false
