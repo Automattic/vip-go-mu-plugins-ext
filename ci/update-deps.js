@@ -6,8 +6,6 @@ const { execSync } = require('child_process');
 const { compareVersions } = require( './utils' );
 
 const CONFIG_FILE = './config.json';
-const JETPACK_REPO = 'https://github.com/Automattic/jetpack-production';
-const JETPACK_FOLDER_PREFIX = 'jetpack-';
 
 const configFile = fs.readFileSync(CONFIG_FILE, 'utf8');
 const globalConfig = JSON.parse(configFile);
@@ -205,25 +203,27 @@ function isMinorSupported(plugin, minor) {
 }
 
 /**
- * TODO: needs actual support for Parse.ly, right now only Jetpack is handled
+ * Checks folders against config to see if they need to be removed from repo.
  *
- * @returns
+ * @returns bool Whether something was deleted or not
  */
 async function maybeDeleteRemovedVersions() {
     console.log('Checking existing folders');
 
     let updatedSomething = false;
     const folders = fs.readdirSync('./');
-    const jetpackFolders = folders.filter(folder => folder.startsWith(JETPACK_FOLDER_PREFIX));
-    for (const folder of jetpackFolders) {
-        const [, minor] = folder.split(JETPACK_FOLDER_PREFIX);
-        const supported = isMinorSupported('jetpack', minor);
-        if (!supported) {
-            removeFolder(folder);
+    for (const plugin in globalConfig) {
+        const pluginFolders = folders.filter( folder => folder.startsWith( globalConfig[plugin].folderPrefix ) );
+        for ( const folder of pluginFolders ) {
+            const [, minor] = folder.split(globalConfig[plugin].folderPrefix);
+            const supported = isMinorSupported(plugin, minor);
+            if (!supported) {
+                removeFolder(folder);
 
-            delete globalConfig.jetpack.current[minor]
-            updatedSomething = true;
-            await pingSlack(`Removed ${folder}\nhttps://github.com/Automattic/vip-go-mu-plugins-ext/commits/trunk`);
+                delete globalConfig[plugin].current[minor]
+                updatedSomething = true;
+                await pingSlack(`Removed ${folder}\nhttps://github.com/Automattic/vip-go-mu-plugins-ext/commits/trunk`);
+            }
         }
     }
 
