@@ -3,6 +3,7 @@
 const { default: axios } = require('axios');
 const fs = require('fs');
 const { execSync } = require('child_process');
+const { compareVersions } = require( './utils' );
 
 const CONFIG_FILE = './config.json';
 const JETPACK_REPO = 'https://github.com/Automattic/jetpack-production';
@@ -22,44 +23,6 @@ function incrementVersion(version) {
     }
 
     return result;
-}
-
-function parseVersion(version) {
-    return version.split(/[.-]/).map(part => isNaN(Number(part)) ? part : Number(part));
-}
-
-function compareVersions(a, b) {
-    if (a === b) {
-        return 0;
-    }
-    const aParts = parseVersion(a)
-    const bParts = parseVersion(b)
-
-    const majorCmpr = aParts[0] - bParts[0];
-    if (majorCmpr !== 0) {
-        return majorCmpr;
-    }
-
-    const minorCmpr = aParts[1] - bParts[1];
-    if (minorCmpr !== 0) {
-        return minorCmpr;
-    }
-
-    if (aParts.length === 3 && aParts[2] === 'beta') {
-        return -1;
-    }
-    if (bParts.length === 3 && bParts[2] === 'beta') {
-        return 1;
-    }
-
-    if (aParts.length === 2) {
-        return -1;
-    }
-    if (bParts.length === 2) {
-        return 1;
-    }
-
-    return aParts[2] - bParts[2];
 }
 
 function incrementPatchVersion(version, versionExists) {
