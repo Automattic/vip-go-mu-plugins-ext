@@ -2,16 +2,14 @@
   "jetpack": {
     "repo": "https://github.com/Automattic/jetpack-production",
     "folderPrefix": "jetpack-",
-    "lowestVersion": "9.4",
+    "lowestVersion": "9.8",
     "skip": [
-      "9.4",
-      "9.5",
-      "9.6",
-      "9.7",
       "9.9",
       "10.0",
+      "10.1",
       "10.2",
       "10.3",
+      "10.4",
       "10.5",
       "10.6",
       "10.8",
@@ -39,7 +37,9 @@
     "repo": "https://github.com/Parsely/wp-parsely",
     "folderPrefix": "wp-parsely-",
     "lowestVersion": "3.1",
-    "skip": [],
+    "skip": [
+      "3.4"
+    ],
     "ignore": [],
     "current": {
       "3.1": "3.1.3",
