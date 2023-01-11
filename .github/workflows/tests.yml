@@ -1,0 +1,36 @@
+name: Run tests
+
+on:
+  push:
+    branches:
+    - trunk
+  pull_request:
+    branches:
+    - trunk
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    name: Runs the tests
+    steps:
+      - name: Check out source code
+        uses: actions/checkout@v3.0.2
+
+      - name: Setup Node
+        uses: actions/setup-node@v3.4.1
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: ci
+
+      - name: Run tests
+        run: npm test
+        working-directory: ci
