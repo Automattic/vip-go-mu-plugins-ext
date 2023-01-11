@@ -24,10 +24,7 @@ function compareVersions(a, b) {
     }
 
     if ( isBeta( a ) && isBeta( b ) ) {
-        aParts[2] = stripBetaFromString( aParts[2] );
-        bParts[2] = stripBetaFromString( bParts[2] );
-
-        return aParts[2] - bParts[2];
+        return stripBetaFromString( aParts[2] ) - stripBetaFromString( bParts[2] );
     } else if ( isBeta( b ) && ! isBeta( a ) ) {
         return 1;
     } else if ( isBeta( a) && ! isBeta( b ) ) {

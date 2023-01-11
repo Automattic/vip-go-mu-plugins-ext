@@ -3,7 +3,7 @@ const {
     isBeta
 } = require( '../utils' );
 
-describe( 'compareVersion()', () => {
+describe( 'compareVersions()', () => {
     it( 'should return 1 if the currentVersion is older than the latestVersion', () => {
         const expected = 1;
         const versionsToCompare = {
@@ -12,6 +12,7 @@ describe( 'compareVersion()', () => {
             '11.7-beta4': '11.7-beta3',
             '11.7.1': '11.7',
             '11.7.4': '11.7.3',
+            '3.6.1': '3.6.0',
         };
         for ( var latestVersion in versionsToCompare ) {
             const result = compareVersions( latestVersion, versionsToCompare[ latestVersion ] );
@@ -25,6 +26,7 @@ describe( 'compareVersion()', () => {
             // latest version => current version key-value pairing
             '11.7-beta3': '11.7-beta3',
             '11.7.1': '11.7.1',
+            '3.6.0': '3.6.0',
         };
         for ( var latestVersion in versionsToCompare ) {
             const result = compareVersions( latestVersion, versionsToCompare[ latestVersion ] );
@@ -38,6 +40,7 @@ describe( 'compareVersion()', () => {
             // latest version => current version key-value pairing
             '11.7-beta2': '11.7-beta3',
             '11.7': '11.7.1',
+            '3.6.0': '3.6.1',
         };
         for ( var latestVersion in versionsToCompare ) {
             const result = compareVersions( latestVersion, versionsToCompare[ latestVersion ] );
