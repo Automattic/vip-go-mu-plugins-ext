@@ -221,7 +221,7 @@ async function maybeDeleteRemovedVersions() {
 
             console.log( 'Removing ' + folder );
             removeFolder( folder );
-            delete globalConfig[plugin].skip[toRemove];
+            delete globalConfig[plugin].current[toRemove]
             updatedSomething = true;
             await pingSlack(`Removed ${folder}\nhttps://github.com/Automattic/vip-go-mu-plugins-ext/commits/trunk`);
         }
