@@ -2,16 +2,13 @@
   "name": "ci",
   "version": "1.0.0",
   "description": "",
-  "main": "update-jetpack.js",
+  "main": "update-deps.js",
   "scripts": {
-    "test": "jest"
+    "test": "node --test"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
     "axios": "^0.27.2"
-  },
-  "devDependencies": {
-    "jest": "^29.3.1"
   }
 }

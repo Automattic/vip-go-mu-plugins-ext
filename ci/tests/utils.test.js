@@ -1,3 +1,5 @@
+const { describe, it } = require( 'node:test' );
+const assert = require( 'node:assert/strict' );
 const {
     compareVersions,
     isBeta
@@ -14,9 +16,9 @@ describe( 'compareVersions()', () => {
             '11.7.4': '11.7.3',
             '3.6.1': '3.6.0',
         };
-        for ( var latestVersion in versionsToCompare ) {
+        for ( const latestVersion in versionsToCompare ) {
             const result = compareVersions( latestVersion, versionsToCompare[ latestVersion ] );
-            expect( result ).toEqual( expected );
+            assert.strictEqual( result, expected );
         }
     });
 
@@ -28,9 +30,9 @@ describe( 'compareVersions()', () => {
             '11.7.1': '11.7.1',
             '3.6.0': '3.6.0',
         };
-        for ( var latestVersion in versionsToCompare ) {
+        for ( const latestVersion in versionsToCompare ) {
             const result = compareVersions( latestVersion, versionsToCompare[ latestVersion ] );
-            expect( result ).toEqual( expected );
+            assert.strictEqual( result, expected );
         }
     });
 
@@ -42,21 +44,21 @@ describe( 'compareVersions()', () => {
             '11.7': '11.7.1',
             '3.6.0': '3.6.1',
         };
-        for ( var latestVersion in versionsToCompare ) {
+        for ( const latestVersion in versionsToCompare ) {
             const result = compareVersions( latestVersion, versionsToCompare[ latestVersion ] );
-            expect( result ).toEqual( expected );
+            assert.strictEqual( result, expected );
         }
     });
 });
 
 describe( 'isBeta()', () => {
     it( 'should return true if it has beta in the string', () => {
-        expect( isBeta( '11.7-beta3' ) ).toEqual( true );
+        assert.strictEqual( isBeta( '11.7-beta3' ), true );
     });
     it( 'should return false if it does not have beta in the string', () => {
-        expect( isBeta( '11.7.1' ) ).toEqual( false );
+        assert.strictEqual( isBeta( '11.7.1' ), false );
     });
     it( 'should return false if it is not a string', () => {
-        expect( isBeta( 11.7 ) ).toEqual( false );
+        assert.strictEqual( isBeta( 11.7 ), false );
     });
 });
