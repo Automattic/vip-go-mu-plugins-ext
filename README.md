@@ -20,8 +20,25 @@ WP-Parsely is another first-party versioned dependency.
 
 Hopefully the only upkeep we need to do is to change [config](./config.json). And only to remove or skip a version. **Additions** and **updates** should happen on its own.
 
-```json
+Each entry in config.json should follow the following format:
 
+```json
+{
+  "plugin": {
+    "repo": "https://github.com/Automattic/awesome-plugin",
+    "folderPrefix": "awesome-plugin-",
+    "lowestVersion": "3.1",
+    "skip": [
+      "3.4"
+    ],
+    "ignore": [],
+    "current": {
+      "3.1": "3.1.3",
+      "3.2": "3.2.1",
+      "3.5": "3.5.2",
+    }
+  }
+}
 ```
 
 
