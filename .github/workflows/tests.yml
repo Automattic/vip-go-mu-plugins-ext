@@ -3,10 +3,16 @@ name: Run tests
 on:
   push:
     branches:
-    - trunk
+      - trunk
+    paths:
+      - "ci/**"
+      - ".github/workflows/tests.yml"
   pull_request:
     branches:
-    - trunk
+      - trunk
+    paths:
+      - "ci/**"
+      - ".github/workflows/tests.yml"
   workflow_dispatch:
 
 concurrency:
@@ -22,15 +28,15 @@ jobs:
     name: Runs the tests
     steps:
       - name: Check out source code
-        uses: actions/checkout@v3.0.2
+        uses: actions/checkout@v3.3.0
 
       - name: Setup Node
-        uses: actions/setup-node@v3.4.1
+        uses: actions/setup-node@v3.6.0
+        with:
+          cache: npm
+          node-version: lts/*
+          cache-dependency-path: ci/package-lock.json
 
-      - name: Install dependencies
-        run: npm ci
-        working-directory: ci
-
-      - name: Run tests
-        run: npm test
+      - name: Install dependencies and run tests
+        run: npm cit
         working-directory: ci
