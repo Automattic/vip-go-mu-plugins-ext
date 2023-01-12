@@ -36,7 +36,7 @@
     "folderPrefix": "wp-parsely-",
     "lowestVersion": "3.1",
     "skip": [
-      null
+      "3.4"
     ],
     "ignore": [],
     "current": {
