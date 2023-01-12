@@ -205,7 +205,7 @@ function isMinorSupported(plugin, minor) {
 /**
  * Checks folders against config to see if they need to be removed from repo.
  *
- * @returns bool Whether something was deleted or not
+ * @returns bool updatedSomething Whether something was deleted or not
  */
 async function maybeDeleteRemovedVersions() {
     console.log('Checking existing folders');
@@ -213,17 +213,17 @@ async function maybeDeleteRemovedVersions() {
     let updatedSomething = false;
     const folders = fs.readdirSync('./');
     for (const plugin in globalConfig) {
-        const pluginFolders = folders.filter( folder => folder.startsWith( globalConfig[plugin].folderPrefix ) );
-        for ( const folder of pluginFolders ) {
-            const [, minor] = folder.split(globalConfig[plugin].folderPrefix);
-            const supported = isMinorSupported(plugin, minor);
-            if (!supported) {
-                removeFolder(folder);
-
-                delete globalConfig[plugin].current[minor]
-                updatedSomething = true;
-                await pingSlack(`Removed ${folder}\nhttps://github.com/Automattic/vip-go-mu-plugins-ext/commits/trunk`);
+        for ( const toRemove in globalConfig[plugin].skip ) {
+            const folder = globalConfig[plugin].folderPrefix + globalConfig[plugin].skip[toRemove];
+            if ( ! fs.existsSync( folder ) ) {
+                continue;
             }
+
+            console.log( 'Removing ' + folder );
+            removeFolder( folder );
+            delete globalConfig[plugin].skip[toRemove];
+            updatedSomething = true;
+            await pingSlack(`Removed ${folder}\nhttps://github.com/Automattic/vip-go-mu-plugins-ext/commits/trunk`);
         }
     }
 
