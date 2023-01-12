@@ -1,6 +1,6 @@
 # VIP MU plugins external dependencies
 
-This repository contains external dependencies for MU plugins. For example, all the versioned Jetpack.
+This repository contains external dependencies for MU plugins. Currently this is limited to Jetpack and WP-Parsely.
 
 The idea behind this repo is to automate external dependency management while still maintaining back-compat.
 
@@ -8,7 +8,9 @@ The idea behind this repo is to automate external dependency management while st
 
 Jetpack is a hard dependency on VIP. Unfortunately, Jetpack release cadence (every month) creates burden/toil for us, so we're rebundling Jetpack here in the repo.
 
-There is a github action that runs once an hour. It goes through minor versions (`10.9`, `11.0`, ...) and finds the latest patch version for each.
+# WP-Parsely
+
+WP-Parsely is another first-party versioned dependency.
 
 # Automation
 
@@ -18,9 +20,14 @@ There is a github action that runs once an hour. It goes through minor versions 
 
 Hopefully the only upkeep we need to do is to change [config](./config.json). And only to remove or skip a version. **Additions** and **updates** should happen on its own.
 
+```json
+
+```
+
+
 ## `lowestVersion`
 
-The version to start scanning Jetpack tags from. Updater will delete versions lower than `lowestVersion`.
+The version to start scanning dependency tags from. Updater will delete versions lower than `lowestVersion`.
 
 ## `skip`
 
@@ -28,8 +35,11 @@ List of versions to be excluded from the updater. This is used for higher versio
 
 ## `ignore`
 
-List of versions that should be fully ignored by upgrader. That means not update,add or remove them. This is usefull if we for some reason want to diverge from the JP semver.
+List of versions that should be fully ignored by upgrader. That means not update, add or remove them. This is useful if we for some reason want to diverge from the upstream (a hotfix, VIP-specific patch, etc.
 
 # Ignored versions
 
+## Jetpack
+
 * 10.7 - We are using `10.7+vip.1` tag in order to avoid breaking changes to filter `jetpack_relatedposts_returned_results`
+* 10.9
