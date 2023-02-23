@@ -189,19 +189,6 @@ async function maybeUpdateVersions() {
     return updatedSomething;
 }
 
-function isMinorSupported(plugin, minor) {
-    if (globalConfig[plugin].skip.includes(minor)) {
-        return false;
-    }
-
-    if (compareVersions(minor, globalConfig[plugin].lowestVersion) < 0) {
-        return false;
-    }
-
-    return true;
-
-}
-
 /**
  * Checks folders against config to see if they need to be removed from repo.
  *
@@ -213,21 +200,64 @@ async function maybeDeleteRemovedVersions() {
     let updatedSomething = false;
     const folders = fs.readdirSync('./');
     for (const plugin in globalConfig) {
+        // Remove lower versions than the allowed lowest version.
+        let lowerVersions = await getLowerVersionsThanLowest( folders, plugin );
+        if ( lowerVersions.length > 0 ) {
+            for( const lowerVersion in lowerVersions ) {
+                const folder = globalConfig[plugin].folderPrefix + lowerVersions[lowerVersion];
+                updatedSomething = removePluginVersion( folder ) || updatedSomething;
+            }
+        }
+        // If it's on the skip list, remove.
         for ( const toRemove in globalConfig[plugin].skip ) {
             const folder = globalConfig[plugin].folderPrefix + globalConfig[plugin].skip[toRemove];
-            if ( ! fs.existsSync( folder ) ) {
-                continue;
-            }
-
-            console.log( 'Removing ' + folder );
-            removeFolder( folder );
             delete globalConfig[plugin].current[toRemove]
-            updatedSomething = true;
-            await pingSlack(`Removed ${folder}\nhttps://github.com/Automattic/vip-go-mu-plugins-ext/commits/trunk`);
+            updatedSomething = removePluginVersion( folder ) || updatedSomething;
         }
     }
 
     return updatedSomething;
+}
+
+/**
+ * Removes plugin folder and pings slack.
+ *
+ * @param string folder Plugin folder to remove
+ * @returns bool Whether plugin folder was removed or not
+ */
+async function removePluginVersion( folder ) {
+    if ( ! fs.existsSync( folder ) ) {
+        return false;
+    }
+
+    console.log( 'Removing ' + folder );
+    removeFolder( folder );
+    await pingSlack(`Removed ${folder}\nhttps://github.com/Automattic/vip-go-mu-plugins-ext/commits/trunk`);
+    return true;
+}
+
+/**
+ * Gets lower versions than lowest allowed version for a plugin.
+ * For example, if we lowestVersion is 10.7 and we have 9.8 & 10.8 for versions, we'd consider 9.8 to be
+ * a lower version than the lowest allowed version.
+ *
+ * @param array folders List of folders in directory
+ * @param string plugin Plugin name
+ * @returns array lowerVersion Lowest version allowed for plugin
+ */
+async function getLowerVersionsThanLowest( folders, plugin ) {
+    let lowerVersions = [];
+    const folderPrefix = globalConfig[plugin].folderPrefix;
+    for( const folder in folders ) {
+        if ( ! folders[folder].startsWith( folderPrefix ) ) {
+            continue;
+        }
+        const versionNumber = folders[folder].substring( folderPrefix.length );
+        if ( -1 === compareVersions( versionNumber, globalConfig[plugin].lowestVersion ) ) {
+            lowerVersions.push( versionNumber );
+        }
+    }
+    return lowerVersions;
 }
 
 async function main() {
