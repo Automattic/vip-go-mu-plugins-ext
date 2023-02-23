@@ -115,7 +115,7 @@ async function maybeUpdateVersion(plugin, minorVersion, version) {
             const command = `git subtree add -P ${folder} --squash ${config.repo} ${version} -m "Add ${plugin} ${folder} subtree with tag ${version}"`;
             execSync(command);
         }
-        await pingSlack(`Updated ${folder} to ${version}\nhttps://github.com/Automattic/vip-go-mu-plugins-ext/commits/trunk`);
+        // await pingSlack(`Updated ${folder} to ${version}\nhttps://github.com/Automattic/vip-go-mu-plugins-ext/commits/trunk`);
         globalConfig[plugin].current[minorVersion] = version;
         return true;
     } catch (err) {
@@ -205,14 +205,16 @@ async function maybeDeleteRemovedVersions() {
         if ( lowerVersions.length > 0 ) {
             for( const lowerVersion in lowerVersions ) {
                 const folder = globalConfig[plugin].folderPrefix + lowerVersions[lowerVersion];
-                updatedSomething = removePluginVersion( folder ) || updatedSomething;
+                updatedSomething = await removePluginVersion( folder ) || updatedSomething;
+                console.log( updatedSomething );
             }
         }
         // If it's on the skip list, remove.
         for ( const toRemove in globalConfig[plugin].skip ) {
             const folder = globalConfig[plugin].folderPrefix + globalConfig[plugin].skip[toRemove];
             delete globalConfig[plugin].current[toRemove]
-            updatedSomething = removePluginVersion( folder ) || updatedSomething;
+            updatedSomething = await removePluginVersion( folder ) || updatedSomething;
+            console.log( updatedSomething );
         }
     }
 
@@ -230,9 +232,9 @@ async function removePluginVersion( folder ) {
         return false;
     }
 
-    console.log( 'Removing ' + folder );
-    removeFolder( folder );
-    await pingSlack(`Removed ${folder}\nhttps://github.com/Automattic/vip-go-mu-plugins-ext/commits/trunk`);
+    // console.log( 'Removing ' + folder );
+    // removeFolder( folder );
+    // await pingSlack(`Removed ${folder}\nhttps://github.com/Automattic/vip-go-mu-plugins-ext/commits/trunk`);
     return true;
 }
 
@@ -265,7 +267,7 @@ async function main() {
 
     let updatedSomething = false;
 
-    updatedSomething = await maybeUpdateVersions();
+    // updatedSomething = await maybeUpdateVersions();
     updatedSomething = await maybeDeleteRemovedVersions() || updatedSomething;
 
     if (updatedSomething) {
