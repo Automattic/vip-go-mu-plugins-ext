@@ -127,9 +127,12 @@ async function maybeUpdateVersion(plugin, minorVersion, version) {
 function persistConfig() {
     console.log('Persisting config', globalConfig);
 
-    fs.writeFileSync(CONFIG_FILE, JSON.stringify(globalConfig, null, 2));
-
-    execSync('git commit -avm "Update config.json"');
+    try {
+        fs.writeFileSync(CONFIG_FILE, JSON.stringify(globalConfig, null, 2));
+        execSync('git commit -avm "Update config.json"');
+    } catch( err ) {
+        console.error( err );
+    }
 }
 
 
@@ -137,12 +140,17 @@ function maybeConfigGit() {
     let email = '';
     try {
         email = execSync('git config user.email').toString().trim();
-    } catch (e) {
+    } catch ( err ) {
+        console.error( err );
     }
 
     if (!email) {
-        execSync('git config user.email "Jetpack@update.bot"');
-        execSync('git config user.name "Jetpack Update Bot"');
+        try {
+            execSync('git config user.email "Jetpack@update.bot"');
+            execSync('git config user.name "Jetpack Update Bot"');
+        } catch( err ) {
+            console.error( err );
+        }
     }
 }
 
@@ -279,7 +287,11 @@ async function main() {
 
     if (updatedSomething) {
         persistConfig();
-        execSync('git push');
+        try {
+            execSync('git push');
+        } catch( err ) {
+            console.error( err );
+        }
     }
 }
 
