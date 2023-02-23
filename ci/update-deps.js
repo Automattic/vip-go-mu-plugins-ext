@@ -205,14 +205,14 @@ async function maybeDeleteRemovedVersions() {
         if ( lowerVersions.length > 0 ) {
             for( const lowerVersion in lowerVersions ) {
                 const folder = globalConfig[plugin].folderPrefix + lowerVersions[lowerVersion];
-                updatedSomething = removePluginVersion( folder ) || updatedSomething;
+                updatedSomething = await removePluginVersion( folder ) || updatedSomething;
             }
         }
         // If it's on the skip list, remove.
         for ( const toRemove in globalConfig[plugin].skip ) {
             const folder = globalConfig[plugin].folderPrefix + globalConfig[plugin].skip[toRemove];
             delete globalConfig[plugin].current[toRemove]
-            updatedSomething = removePluginVersion( folder ) || updatedSomething;
+            updatedSomething = await removePluginVersion( folder ) || updatedSomething;
         }
     }
 
