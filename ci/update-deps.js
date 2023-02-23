@@ -210,6 +210,7 @@ async function maybeDeleteRemovedVersions() {
         if ( lowerVersions.length > 0 ) {
             for( const lowerVersion in lowerVersions ) {
                 const folder = globalConfig[plugin].folderPrefix + lowerVersions[lowerVersion];
+                delete globalConfig[plugin].current[lowerVersions[lowerVersion]]
                 updatedSomething = await removePluginVersion( folder ) || updatedSomething;
             }
         }
