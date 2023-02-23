@@ -148,9 +148,14 @@ function maybeConfigGit() {
 
 function removeFolder(folderName) {
     console.log(`Removing ${folderName}`);
-    fs.rmdirSync(folderName, { recursive: true });
-    execSync(`git add ${folderName}`)
-    execSync(`git commit -m "Removing ${folderName}"`);
+
+    try {
+        fs.rmSync(folderName, { recursive: true });
+        execSync(`git add ${folderName}`)
+        execSync(`git commit -m "Removing ${folderName}"`);
+    } catch (err) {
+        console.error(err);
+    }
 }
 
 async function maybeUpdateVersions() {
@@ -230,9 +235,12 @@ async function removePluginVersion( folder ) {
         return false;
     }
 
-    console.log( 'Removing ' + folder );
     removeFolder( folder );
-    await pingSlack(`Removed ${folder}\nhttps://github.com/Automattic/vip-go-mu-plugins-ext/commits/trunk`);
+    try {
+        await pingSlack(`Removed ${folder}\nhttps://github.com/Automattic/vip-go-mu-plugins-ext/commits/trunk`);
+    } catch ( err ) {
+        console.error( err );
+    }
     return true;
 }
 
