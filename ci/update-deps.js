@@ -127,9 +127,12 @@ async function maybeUpdateVersion(plugin, minorVersion, version) {
 function persistConfig() {
     console.log('Persisting config', globalConfig);
 
-    fs.writeFileSync(CONFIG_FILE, JSON.stringify(globalConfig, null, 2));
-
-    execSync('git commit -avm "Update config.json"');
+    try {
+        fs.writeFileSync(CONFIG_FILE, JSON.stringify(globalConfig, null, 2));
+        execSync('git commit -avm "Update config.json"');
+    } catch( err ) {
+        console.error( err );
+    }
 }
 
 
@@ -279,7 +282,11 @@ async function main() {
 
     if (updatedSomething) {
         persistConfig();
-        execSync('git push');
+        try {
+            execSync('git push');
+        } catch( err ) {
+            console.error( err );
+        }
     }
 }
 
