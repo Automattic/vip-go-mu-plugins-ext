@@ -60,3 +60,4 @@ List of versions that should be fully ignored by upgrader. That means not update
 
 * 10.7 - We are using `10.7+vip.1` tag in order to avoid breaking changes to filter `jetpack_relatedposts_returned_results`
 * 10.9
+* 11.9 - We are using `11.9+vip.1` tag to fix Publicize bug
