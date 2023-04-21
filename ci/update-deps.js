@@ -4,8 +4,11 @@ const { default: axios } = require('axios');
 const fs = require('fs');
 const { execSync } = require('child_process');
 const { compareVersions } = require( './utils' );
+const marked = require('marked');
 
 const CONFIG_FILE = './config.json';
+
+const LOBBY_VIP_TOKEN = process.env.LOBBY_VIP_TOKEN;
 
 const configFile = fs.readFileSync(CONFIG_FILE, 'utf8');
 const globalConfig = JSON.parse(configFile);
@@ -114,6 +117,9 @@ async function maybeUpdateVersion(plugin, minorVersion, version) {
             // add
             const command = `git subtree add -P ${folder} --squash ${config.repo} ${version} -m "Add ${plugin} ${folder} subtree with tag ${version}"`;
             execSync(command);
+            if ( plugin === 'jetpack' && version.includes( 'beta' ) ) {
+                draftJPBetaPost(version);
+            }
         }
         await pingSlack(`Updated ${folder} to ${version}\nhttps://github.com/Automattic/vip-go-mu-plugins-ext/commits/trunk`);
         globalConfig[plugin].current[minorVersion] = version;
@@ -122,6 +128,144 @@ async function maybeUpdateVersion(plugin, minorVersion, version) {
         console.error(err);
         return false;
     }
+}
+
+/**
+ * Drafts a post on Lobby VIP for Jetpack beta releases.
+ *
+ * @param {string} version - The version of Jetpack being released
+ * @returns {void}
+ */
+async function draftJPBetaPost( version ) {
+    if ( ! version.includes( 'beta' ) ) {
+        return;
+    }
+
+    const changelog = await fetchChangelog( version );
+    const section = extractChangelogSection( changelog, version );
+
+    if ( section ) {
+        const title = `Call for Testing: Jetpack ${version}`;
+        const content = createJPBetaPostContent(version, section);
+        const post = createJPBetaPost( title, content );
+        if ( post ) {
+            const postUrl = `https://lobby.vip.wordpress.com/wp-admin/post.php?post=${post.id}&action=edit`
+            pingSlack(`@vip-cantina-team Jetpack ${version} draft created for review: ${postUrl}. Don't forget to deploy first before publishing!`);
+        } else {
+            pingSlack(`@vip-cantina-team Error creating Jetpack ${version} draft.`);
+        }
+    }
+}
+
+/**
+ * Gets the entire changelog file contents of Jetpack from GitHub.
+ *
+ * @async
+ * @param {string} version - The version of Jetpack being released
+ * @returns {Promise<Object>} - The response data from the API
+ */
+async function fetchChangelog(version) {
+    const url = `https://raw.githubusercontent.com/Automattic/jetpack-production/${version}/CHANGELOG.md`;
+
+    try {
+      const response = await axios.get(url);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+}
+
+/**
+ * Extract changelog section for specified Jetpack version.
+ *
+ * @param {string} changelog - The entire changelog file contents of Jetpack
+ * @param {string} version - The version of Jetpack being released
+ * @returns {string} changelog section for the specified version
+ */
+function extractChangelogSection(changelog, version) {
+    const regex = new RegExp(`^\\s*(## ${version}\\s.*?)^\\s*### Other changes`, 'ms');
+    const match = regex.exec(changelog);
+    if ( match ) {
+        return match[1].trim();
+    }
+
+    return false;
+}
+
+/**
+ * Creates the draft for the Jetpack beta post.
+ *
+ * @param {string} title - The title of the post
+ * @param {string} content - The content of the post
+ */
+function createJPBetaPost(title, content) {
+    const data = {
+        title: title,
+        content: content,
+        status: 'draft',
+        categories: 636069
+    };
+
+    axios.post('https://public-api.wordpress.com/wp/v2/sites/lobby.vip.wordpress.com/posts', data, {
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${LOBBY_VIP_TOKEN}`
+        }
+    })
+    .then((response) => {
+        console.log(`Status Code: ${response.status}`);
+        console.log('Data:', response.data);
+        return response.data;
+    })
+    .catch((error) => {
+        console.error('Error:', error.message);
+        return false;
+    });
+}
+
+/**
+ * Creates the content for the Jetpack beta post to go to the Lobby
+ *
+ * @param {string} version - The version of Jetpack being released
+ * @param {string} section - The section of the changelog for this beta version
+ * @returns {string} content - The generated content for the Lobby post
+ */
+function createJPBetaPostContent(version, section) {
+    const downloadLink = `<a href="https://github.com/Automattic/jetpack-production/releases/tag/${version}">available here</a>`;
+    let content = `<p>Jetpack <strong>${version}</strong> is available now for testing and the download link is ${downloadLink} </p>`;
+
+    const officialVersion = version.replace(/-beta\d?/g, '');
+    const today = new Date();
+    const dateFormatter = new Intl.DateTimeFormat('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+    });
+    const releaseDate = dateFormatter.format(today.setDate(today.getDate() + 9)); // Assumes it's a Tuesday
+    content += `<p>Jetpack ${officialVersion} will be deployed to VIP on <strong>${releaseDate}</strong>*. The upgrade is expected to be performed at 17:00 UTC (1:00PM ET).</p>`;
+
+    content += `<p><i>*This deployment date and time are subject to change if issues are discovered during testing of the Jetpack release.</i></p>
+    <p>A full list of changes is available in the <a href="https://github.com/Automattic/jetpack/commits/" target="_blank">commit log</a>.</p>
+    <h1>What is being added or changed?</h1>`;
+    content += marked.parse(section);
+
+    content += `<h1>What do I need to do?</h1>
+    <p>We recommend the below:</p>
+    <ol>
+    <li>Installing the release on your non-production sites using <a href="https://github.com/Automattic/jetpack/blob/trunk/projects/plugins/jetpack/to-test.md" target="_blank">these instructions</a>.</li>
+    <li>Running through the testing flows outlined in the <a href="https://github.com/Automattic/jetpack/blob/jetpack/branch-${officialVersion}/projects/plugins/jetpack/to-test.md" target="_blank">Jetpack Testing Guide</a>.</li>
+    </ol>
+
+    <p>As you're testing, there are a few things to keep in mind:</p>
+    <ul>
+    <li>Check your browser's <a href="https://wordpress.org/documentation/article/using-your-browser-to-diagnose-javascript-errors/" target="_blank">JavaScript console</a> and see if there are any errors reported by Jetpack there.</li>
+    <li>Use <a href="https://docs.wpvip.com/how-tos/enable-query-monitor/" target="_blank">Query Monitor</a> to help make PHP notices and warnings more noticeable and report anything you see.</li>
+    </ul>
+    <h2>Questions?</h2>
+    <p>If you have any questions, related to this release, please <a href="https://docs.wpvip.com/technical-references/vip-support/" target="_blank">open a support ticket</a> and we will be happy to assist.</p>`;
+
+    return content;
 }
 
 function persistConfig() {

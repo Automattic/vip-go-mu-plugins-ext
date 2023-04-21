@@ -32,4 +32,5 @@ jobs:
       - name: Run update
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          LOBBY_VIP_TOKEN: ${{ secrets.LOBBY_VIP_TOKEN }}
         run: node ./ci/update-deps.js
