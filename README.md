@@ -8,9 +8,17 @@ The idea behind this repo is to automate external dependency management while st
 
 Jetpack is a hard dependency on VIP. Unfortunately, Jetpack release cadence (every month) creates burden/toil for us, so we're rebundling Jetpack here in the repo.
 
-# WP-Parsely
+## WP-Parsely
 
 WP-Parsely is another first-party versioned dependency.
+
+# Integrations
+
+VIP-created plugins bundled for easier customer usage.
+
+## VIP Block Data API
+
+The [VIP Block Data API](https://github.com/Automattic/vip-block-data-api/) is a REST API for retrieving block editor posts structured as JSON data. Useful for mapping Gutenberg block content to custom components in decopuled.
 
 # Automation
 
