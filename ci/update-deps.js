@@ -187,12 +187,8 @@ async function draftJPPost( version, type ) {
 async function fetchChangelog(version) {
     const url = `https://raw.githubusercontent.com/Automattic/jetpack-production/${version}/CHANGELOG.md`;
 
-    try {
-      const response = await axios.get(url);
-      return response.data;
-    } catch (error) {
-      throw error;
-    }
+    const response = await axios.get(url);
+    return response.data;
 }
 
 /**
