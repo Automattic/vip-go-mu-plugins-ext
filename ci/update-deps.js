@@ -204,8 +204,7 @@ async function fetchChangelog(version) {
  * @returns {string} changelog section for the specified version
  */
 function extractChangelogSection(changelog, version, type) {
-    let regex = null;
-    regex = new RegExp(`^\\s*(## ${version}\\s.*?)^\\s*### Other changes`, 'ms');
+    let regex = new RegExp(`^\\s*(## ${version}\\s.*?)^\\s*### Other changes`, 'ms');
     let match = regex.exec(changelog);
 
     if ( ! match && type === 'release' ) {
