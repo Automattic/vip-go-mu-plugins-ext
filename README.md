@@ -12,11 +12,11 @@ Jetpack is a hard dependency on VIP. Unfortunately, Jetpack release cadence (eve
 
 WP-Parsely is another first-party versioned dependency.
 
-# Integrations
+## Integrations
 
 VIP-created plugins bundled for easier customer usage.
 
-## VIP Block Data API
+### VIP Block Data API
 
 The [VIP Block Data API](https://github.com/Automattic/vip-block-data-api/) is a REST API for retrieving block editor posts structured as JSON data. Useful for mapping Gutenberg block content to custom components in decopuled.
 
