@@ -99,7 +99,8 @@ async function maybeUpdateVersion(plugin, minorVersion, version) {
 
     try {
         if (config.current[minorVersion]) {
-            const versionCmp = compareVersions(version, config.current[minorVersion]);
+            const oldVersion = config.current[minorVersion];
+            const versionCmp = compareVersions(version, oldVersion);
             if (versionCmp < 0) {
                 console.log(`${minorVersion} tried to downgrade to ${version}, but skipped`);
                 return false;
@@ -113,12 +114,16 @@ async function maybeUpdateVersion(plugin, minorVersion, version) {
             execSync(`git commit -m "Removing ${folder} for subtree replacement to ${version}"`);
             const command = `git subtree add -P ${folder} --squash ${config.repo} ${version} -m "Update ${plugin} ${folder} subtree with tag ${version}"`;
             execSync(command);
+            if ( plugin === 'jetpack' && oldVersion.includes('beta') && ! version.includes('beta') ) {
+                // Only draft if we are going from beta -> release
+                draftJPPost(version, 'release');
+            }
         } else {
             // add
             const command = `git subtree add -P ${folder} --squash ${config.repo} ${version} -m "Add ${plugin} ${folder} subtree with tag ${version}"`;
             execSync(command);
             if ( plugin === 'jetpack' && version.includes( 'beta' ) ) {
-                draftJPBetaPost(version);
+                draftJPPost(version, 'beta');
             }
         }
         await pingSlack(`Updated ${folder} to ${version}\nhttps://github.com/Automattic/vip-go-mu-plugins-ext/commits/trunk`);
@@ -131,28 +136,43 @@ async function maybeUpdateVersion(plugin, minorVersion, version) {
 }
 
 /**
- * Drafts a post on Lobby VIP for Jetpack beta releases.
+ * Drafts a post on Lobby VIP for Jetpack releases.
  *
  * @param {string} version - The version of Jetpack being released
- * @returns {void}
+ * @param {string} type - Type of post being drafted. Accepted values: beta, release
+ * @returns {boolean} Whether the post was successfully drafted or not
  */
-async function draftJPBetaPost( version ) {
-    if ( ! version.includes( 'beta' ) ) {
-        return;
+async function draftJPPost( version, type ) {
+    const allowedTypes = [ 'beta', 'release' ];
+    if ( ! allowedTypes.includes( type ) ) {
+        return false;
+    }
+
+    if ( type === 'beta' && ! version.includes( 'beta' ) ) {
+        return false;
     }
 
     const changelog = await fetchChangelog( version );
-    const section = extractChangelogSection( changelog, version );
+    const section = extractChangelogSection( changelog, version, type );
 
     if ( section ) {
-        const title = `Call for Testing: Jetpack ${version}`;
-        const content = createJPBetaPostContent(version, section);
-        const post = createJPBetaPost( title, content );
+        let title = '';
+        let content = '';
+        if ( type === 'beta' ) {
+            title = `Call for Testing: Jetpack ${version}`;
+            content = createJPBetaPostContent(version, section);
+        } else {
+            title = `New Release: Jetpack ${version}`;
+            content = createJPReleasePostContent(version, section);
+        }
+        const post = createJPPost( title, content );
         if ( post ) {
             const postUrl = `https://lobby.vip.wordpress.com/wp-admin/post.php?post=${post.id}&action=edit`
             pingSlack(`@vip-cantina-team Jetpack ${version} draft created for review: ${postUrl}. Don't forget to deploy first before publishing!`);
+            return true;
         } else {
             pingSlack(`@vip-cantina-team Error creating Jetpack ${version} draft.`);
+            return false;
         }
     }
 }
@@ -180,11 +200,20 @@ async function fetchChangelog(version) {
  *
  * @param {string} changelog - The entire changelog file contents of Jetpack
  * @param {string} version - The version of Jetpack being released
+ * @param {string} type - Type of Jetpack version being released. Accepted values: beta, release
  * @returns {string} changelog section for the specified version
  */
-function extractChangelogSection(changelog, version) {
-    const regex = new RegExp(`^\\s*(## ${version}\\s.*?)^\\s*### Other changes`, 'ms');
-    const match = regex.exec(changelog);
+function extractChangelogSection(changelog, version, type) {
+    let regex = null;
+    regex = new RegExp(`^\\s*(## ${version}\\s.*?)^\\s*### Other changes`, 'ms');
+    let match = regex.exec(changelog);
+
+    if ( ! match && type === 'release' ) {
+        // Re-try with [x.x] format in changelog title since that's also used for releases
+        regex = new RegExp(`^\\s*(## \\[${version}\\]\\s.*?)^\\s*### Other changes`, 'ms');
+        match = regex.exec(changelog);
+    }
+
     if ( match ) {
         return match[1].trim();
     }
@@ -193,17 +222,18 @@ function extractChangelogSection(changelog, version) {
 }
 
 /**
- * Creates the draft for the Jetpack beta post.
+ * Creates the draft for the Jetpack post.
  *
  * @param {string} title - The title of the post
  * @param {string} content - The content of the post
  */
-function createJPBetaPost(title, content) {
+function createJPPost(title, content) {
     const data = {
         title: title,
         content: content,
         status: 'draft',
-        categories: 636069
+        categories: 636069,
+        tags: 636069,
     };
 
     axios.post('https://public-api.wordpress.com/wp/v2/sites/lobby.vip.wordpress.com/posts', data, {
@@ -221,6 +251,28 @@ function createJPBetaPost(title, content) {
         console.error('Error:', error.message);
         return false;
     });
+}
+
+/**
+ * Create body content for Jetpack release post.
+ *
+ * @param {string} version - The version of Jetpack being released
+ * @param {string} section - The changelog section for the specified version
+ * @return {string} The body content for the Jetpack release post
+ */
+function createJPReleasePostContent(version, section) {
+    const image = 'https://lobby-vip.files.wordpress.com/2021/05/3-v1_52018_preview-2.png?w=960';
+    let content = `<img src="${image}" alt="New Jetpack release">`;
+    content += `<p>Jetpack ${version} has been made the default Jetpack version on the VIP Platform.</p>`;
+    content += `<h1>What is being added or changed?</h1>`;
+    content += marked.parse(section);
+
+    const releaseNotesLink = `https://github.com/Automattic/jetpack-production/releases/tag/${version}`;
+    content += `<p>For more details about this release (including specific changes), please see the <a href="${releaseNotesLink}" target="_blank">release notes</a>.</p>`;
+    content += `<h3>Questions?</h3>`;
+    content += `If you have any questions, related to this release, please open a <a href="https://wpvip.com/documentation/developing-with-vip/accessing-vip-support/" target="_blank">support ticket</a> and we will be happy to assist.`;
+
+    return content;
 }
 
 /**
