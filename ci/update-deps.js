@@ -156,8 +156,8 @@ async function draftJPPost( version, type ) {
     const section = extractChangelogSection( changelog, version, type );
 
     if ( section ) {
-        let title = '';
-        let content = '';
+        let title;
+        let content;
         if ( type === 'beta' ) {
             title = `Call for Testing: Jetpack ${version}`;
             content = createJPBetaPostContent(version, section);
@@ -187,12 +187,8 @@ async function draftJPPost( version, type ) {
 async function fetchChangelog(version) {
     const url = `https://raw.githubusercontent.com/Automattic/jetpack-production/${version}/CHANGELOG.md`;
 
-    try {
-      const response = await axios.get(url);
-      return response.data;
-    } catch (error) {
-      throw error;
-    }
+    const response = await axios.get(url);
+    return response.data;
 }
 
 /**
@@ -204,8 +200,7 @@ async function fetchChangelog(version) {
  * @returns {string} changelog section for the specified version
  */
 function extractChangelogSection(changelog, version, type) {
-    let regex = null;
-    regex = new RegExp(`^\\s*(## ${version}\\s.*?)^\\s*### Other changes`, 'ms');
+    let regex = new RegExp(`^\\s*(## ${version}\\s.*?)^\\s*### Other changes`, 'ms');
     let match = regex.exec(changelog);
 
     if ( ! match && type === 'release' ) {
