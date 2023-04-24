@@ -8,7 +8,7 @@ const marked = require('marked');
 
 const CONFIG_FILE = './config.json';
 
-const LOBBY_VIP_TOKEN = process.env.LOBBY_VIP_TOKEN;
+const { LOBBY_VIP_TOKEN } = process.env;
 
 const configFile = fs.readFileSync(CONFIG_FILE, 'utf8');
 const globalConfig = JSON.parse(configFile);
