@@ -156,8 +156,8 @@ async function draftJPPost( version, type ) {
     const section = extractChangelogSection( changelog, version, type );
 
     if ( section ) {
-        let title = '';
-        let content = '';
+        let title;
+        let content;
         if ( type === 'beta' ) {
             title = `Call for Testing: Jetpack ${version}`;
             content = createJPBetaPostContent(version, section);
