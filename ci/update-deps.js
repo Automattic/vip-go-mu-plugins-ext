@@ -168,10 +168,10 @@ async function draftJPPost( version, type ) {
         const post = await createJPPost( title, content );
         if ( post.id ) {
             const postUrl = `https://lobby.vip.wordpress.com/wp-admin/post.php?post=${post.id}&action=edit`
-            pingSlack(`@vip-cantina-team Jetpack ${version} draft created for review: ${postUrl}. Don't forget to deploy first before publishing!`);
+            pingSlack(`<!subteam^S01SYE0V8TA> Jetpack ${version} draft created for review: ${postUrl}. Don't forget to deploy first before publishing!`);
             return true;
         } else {
-            pingSlack(`@vip-cantina-team Error creating Jetpack ${version} draft.`);
+            pingSlack(`<!subteam^S01SYE0V8TA> Error creating Jetpack ${version} draft.`);
             return false;
         }
     }
