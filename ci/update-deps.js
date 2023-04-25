@@ -309,8 +309,8 @@ function createJPBetaPostContent(version, section) {
     content += `<h1>What do I need to do?</h1>
     <p>We recommend the below:</p>
     <ol>
-    <li>Installing the release on your non-production sites using <a href="https://github.com/Automattic/jetpack/blob/trunk/projects/plugins/jetpack/to-test.md" target="_blank">these instructions</a>.</li>
-    <li>Running through the testing flows outlined in the <a href="https://github.com/Automattic/jetpack/blob/jetpack/branch-${officialVersion}/projects/plugins/jetpack/to-test.md" target="_blank">Jetpack Testing Guide</a>.</li>
+    <li>Installing the release on your non-production sites using <a href="https://docs.wpvip.com/how-tos/jetpack/#h-pinning-to-a-version" target="_blank">these instructions</a>.</li>
+    <li>Running through the testing flows outlined in the <a href="https://github.com/Automattic/jetpack/blob/trunk/projects/plugins/jetpack/to-test.md" target="_blank">Jetpack Testing Guide</a>.</li>
     </ol>
 
     <p>As you're testing, there are a few things to keep in mind:</p>
