@@ -209,8 +209,16 @@ function extractChangelogSection(changelog, version, type) {
         match = regex.exec(changelog);
     }
 
+    let changes = false;
     if ( match ) {
-        return match[1].trim();
+        changes = match[1].trim();
+        // Strip first line out since it's just a heading
+        let firstLineRegex = new RegExp( `(?<=\\n).*`, 'ms' );
+        let section = firstLineRegex.exec( changes );
+        if ( section ) {
+            // Strip out the PR numbers since they're not needed
+            return section[0].replace( /(\s*\[#\d+])/g, '' );
+        }
     }
 
     return false;
@@ -241,9 +249,11 @@ async function createJPPost(title, content) {
         .then((response) => {
             console.log(`Status Code: ${response.status}`);
             console.log('Data:', response.data);
+            return response.data;
         })
         .catch((error) => {
             console.error('Error:', error.message);
+            return false;
     });
 }
 
