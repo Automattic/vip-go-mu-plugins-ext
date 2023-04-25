@@ -165,8 +165,8 @@ async function draftJPPost( version, type ) {
             title = `New Release: Jetpack ${version}`;
             content = createJPReleasePostContent(version, section);
         }
-        const post = createJPPost( title, content );
-        if ( post ) {
+        const post = await createJPPost( title, content );
+        if ( post.id ) {
             const postUrl = `https://lobby.vip.wordpress.com/wp-admin/post.php?post=${post.id}&action=edit`
             pingSlack(`@vip-cantina-team Jetpack ${version} draft created for review: ${postUrl}. Don't forget to deploy first before publishing!`);
             return true;
@@ -221,8 +221,9 @@ function extractChangelogSection(changelog, version, type) {
  *
  * @param {string} title - The title of the post
  * @param {string} content - The content of the post
+ * @returns {Object|bool} The response data from the API
  */
-function createJPPost(title, content) {
+async function createJPPost(title, content) {
     const data = {
         title: title,
         content: content,
@@ -231,20 +232,18 @@ function createJPPost(title, content) {
         tags: 636069,
     };
 
-    axios.post('https://public-api.wordpress.com/wp/v2/sites/lobby.vip.wordpress.com/posts', data, {
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${LOBBY_VIP_TOKEN}`
-        }
-    })
-    .then((response) => {
-        console.log(`Status Code: ${response.status}`);
-        console.log('Data:', response.data);
-        return response.data;
-    })
-    .catch((error) => {
-        console.error('Error:', error.message);
-        return false;
+    return axios.post('https://public-api.wordpress.com/wp/v2/sites/lobby.vip.wordpress.com/posts', data, {
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${LOBBY_VIP_TOKEN}`
+            }
+        })
+        .then((response) => {
+            console.log(`Status Code: ${response.status}`);
+            console.log('Data:', response.data);
+        })
+        .catch((error) => {
+            console.error('Error:', error.message);
     });
 }
 
