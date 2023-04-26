@@ -174,6 +174,8 @@ async function draftJPPost( version, type ) {
             pingSlack(`<!subteam^S01SYE0V8TA> Error creating Jetpack ${version} draft.`);
             return false;
         }
+    } else {
+        pingSlack( `<!subteam^S01SYE0V8TA> Error generating Jetpack ${version} changelog. Please review and manually generate.` );
     }
 }
 
@@ -197,7 +199,7 @@ async function fetchChangelog(version) {
  * @param {string} changelog - The entire changelog file contents of Jetpack
  * @param {string} version - The version of Jetpack being released
  * @param {string} type - Type of Jetpack version being released. Accepted values: beta, release
- * @returns {string} changelog section for the specified version
+ * @returns {string|bool} changelog section for the specified version
  */
 function extractChangelogSection(changelog, version, type) {
     let regex = new RegExp(`^\\s*(## ${version}\\s.*?)^\\s*### Other changes`, 'ms');
@@ -209,12 +211,11 @@ function extractChangelogSection(changelog, version, type) {
         match = regex.exec(changelog);
     }
 
-    let changes = false;
     if ( match ) {
-        changes = match[1].trim();
+        const changes = match[1].trim();
         // Strip first line out since it's just a heading
-        let firstLineRegex = new RegExp( `(?<=\\n).*`, 'ms' );
-        let section = firstLineRegex.exec( changes );
+        const firstLineRegex = new RegExp( `(?<=\\n).*`, 'ms' );
+        const section = firstLineRegex.exec( changes );
         if ( section ) {
             // Strip out the PR numbers since they're not needed
             return section[0].replace( /(\s*\[#\d+])/g, '' );
