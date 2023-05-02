@@ -48,11 +48,9 @@
   "vip-block-data-api": {
     "repo": "https://github.com/Automattic/vip-block-data-api",
     "folderPrefix": "vip-integrations/vip-block-data-api-",
-    "lowestVersion": "0.2.1",
+    "lowestVersion": "1.0.0",
     "skip": [],
     "ignore": [],
-    "current": {
-      "0.2.1": "0.2.1"
-    }
+    "current": {}
   }
 }
