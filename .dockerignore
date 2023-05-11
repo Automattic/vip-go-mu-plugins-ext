@@ -24,10 +24,6 @@ README.md
 /jetpack*/vendor/automattic/jetpack-password-checker/vendor/symfony/polyfill-php73/Resources/stubs/JsonException.php
 /jetpack*/vendor/automattic/jetpack-password-checker/vendor/sebastian/resource-operations/build/generate.php
 
-# Files in VIP-Block-Data-API that are giving linting errors due to incompatible PHP versions
-**/vip-block-data-api*/vendor/symfony/polyfill-ctype/bootstrap80.php
-**/vip-block-data-api*/vendor/symfony/polyfill-mbstring/bootstrap80.php
-
 # Parse.ly WordPress Integration
 /wp-parsely-*/.prettierrc
 /wp-parsely-*/bin
