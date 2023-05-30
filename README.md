@@ -66,5 +66,5 @@ List of versions that should be fully ignored by upgrader. That means not update
 
 ## Jetpack
 
-* 10.9
-* 11.9 - We are using `11.9+vip.1` tag to fix Publicize bug
+* 10.9 - Fix SSO change + backported https://github.com/Automattic/jetpack/pull/31072
+* 11.9 - Fix Publicize bug + backported https://github.com/Automattic/jetpack/pull/31072
