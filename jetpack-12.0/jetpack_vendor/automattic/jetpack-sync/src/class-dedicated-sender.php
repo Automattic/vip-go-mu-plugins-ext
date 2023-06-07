@@ -224,6 +224,10 @@ class Dedicated_Sender {
 			return false;
 		}
 
+		if ( true !== wp_cache_add( 'extra_dedicated_sync_spawn_lock', 'locked', 'vip', self::DEDICATED_SYNC_REQUEST_LOCK_TIMEOUT ) ) {
+			return false;
+		}
+
 		$current_lock_value = \Jetpack_Options::get_raw_option( self::DEDICATED_SYNC_REQUEST_LOCK_OPTION_NAME, null );
 
 		if ( ! empty( $current_lock_value ) ) {
