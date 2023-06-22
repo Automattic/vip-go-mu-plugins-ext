@@ -63,6 +63,8 @@
     "lowestVersion": "1.0",
     "skip": [],
     "ignore": [],
-    "current": {}
+    "current": {
+      "1.0": "1.0.1"
+    }
   }
 }
