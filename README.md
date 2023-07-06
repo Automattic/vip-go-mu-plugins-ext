@@ -56,7 +56,7 @@ The version to start scanning dependency tags from. Updater will delete versions
 
 ## `skip`
 
-List of versions to be excluded from the updater. This is used for higher versions that `lowestVersion` that we don't need. Updater will delete this version if present.
+List of versions to be excluded from the updater. This is used for higher versions than `lowestVersion` that we don't need. Updater will delete this version if present.
 
 ## `ignore`
 
@@ -68,4 +68,4 @@ List of versions that should be fully ignored by upgrader. That means not update
 
 * 10.9 - Fix SSO change + backported https://github.com/Automattic/jetpack/pull/31072
 * 11.9 - Fix Publicize bug + backported https://github.com/Automattic/jetpack/pull/31072
-* 10.9, 11.1, 11.2, 11.3, 11.4, 11.5, 11.6, 11.7, 11.8, 11.9, 12.0, 12.1, 12.2 - To prevent undoing of https://github.com/Automattic/vip-go-mu-plugins-ext/commit/82b8a5e608825ba7dd2395f7210e3a010c18e2c8
+* 10.9, 11.1, 11.2, 11.3, 11.4, 11.5, 11.6, 11.7, 11.8, 11.9, 12.0, 12.1, 12.2, 12.3 - To prevent undoing of https://github.com/Automattic/vip-go-mu-plugins-ext/commit/82b8a5e608825ba7dd2395f7210e3a010c18e2c8
