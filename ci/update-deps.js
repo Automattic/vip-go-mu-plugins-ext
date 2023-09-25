@@ -14,10 +14,11 @@ const configFile = fs.readFileSync(CONFIG_FILE, 'utf8');
 const globalConfig = JSON.parse(configFile);
 console.log('Config', globalConfig);
 
-function incrementVersion(version) {
+function incrementVersion(version, plugin) {
     const [major, minor] = version.split('.').map(Number);
+    const maxMinor = plugin === 'jetpack' ? 9 : 20; // Since Jetpack version minors usually don't go over 9, we need to stop looking and jump to the next major.
     let result = '';
-    if (minor === 9) {
+    if (minor === maxMinor) {
         result = `${major + 1}.0`;
     } else {
         result = `${major}.${minor + 1}`;
@@ -396,7 +397,7 @@ async function maybeUpdateVersions() {
 
                 }
             }
-            currentMinor = incrementVersion(currentMinor);
+            currentMinor = incrementVersion(currentMinor, plugin);
         }
     }
 
