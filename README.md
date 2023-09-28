@@ -18,7 +18,11 @@ VIP-created plugins bundled for easier customer usage.
 
 ### VIP Block Data API
 
-The [VIP Block Data API](https://github.com/Automattic/vip-block-data-api/) is a REST API for retrieving block editor posts structured as JSON data. Useful for mapping Gutenberg block content to custom components in decopuled.
+The [VIP Block Data API](https://github.com/Automattic/vip-block-data-api/) is a REST API for retrieving block editor posts structured as JSON data.
+
+### VIP Governance
+
+[VIP Governance](https://github.com/Automattic/vip-governance-plugin) is a plugin that adds additional governance capabilities to the block editor.
 
 # Automation
 
