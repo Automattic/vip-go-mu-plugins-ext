@@ -73,5 +73,13 @@
     "current": {
       "1.0": "1.0.3"
     }
+  },
+  "vip-governance": {
+    "repo": "https://github.com/Automattic/vip-governance",
+    "folderPrefix": "vip-integrations/vip-governance-",
+    "lowestVersion": "1.0",
+    "skip": [],
+    "ignore": [],
+    "current": {}
   }
 }
