@@ -80,8 +80,6 @@
     "lowestVersion": "1.0",
     "skip": [],
     "ignore": [],
-    "current": {
-      "1.0": "1.0.0"
-    }
+    "current": {}
   }
 }
