@@ -75,7 +75,7 @@
     }
   },
   "vip-governance": {
-    "repo": "https://github.com/Automattic/vip-governance",
+    "repo": "https://github.com/Automattic/vip-governance-plugin",
     "folderPrefix": "vip-integrations/vip-governance-",
     "lowestVersion": "1.0",
     "skip": [],
