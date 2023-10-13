@@ -8,11 +8,14 @@ const marked = require('marked');
 
 const CONFIG_FILE = './config.json';
 
-const { LOBBY_VIP_TOKEN } = process.env;
+const { LOBBY_VIP_TOKEN, CHANGELOG_VIP_TOKEN } = process.env;
 
 const configFile = fs.readFileSync(CONFIG_FILE, 'utf8');
 const globalConfig = JSON.parse(configFile);
 console.log('Config', globalConfig);
+
+const LOBBY_URL = 'lobby.vip.wordpress.com';
+const CHANGELOG_URL = 'wpvipchangelog.wordpress.com';
 
 function incrementVersion(version, plugin) {
     const [major, minor] = version.split('.').map(Number);
@@ -116,7 +119,6 @@ async function maybeUpdateVersion(plugin, minorVersion, version) {
             const command = `git subtree add -P ${folder} --squash ${config.repo} ${version} -m "Update ${plugin} ${folder} subtree with tag ${version}"`;
             execSync(command);
             if ( plugin === 'jetpack' && oldVersion.includes('beta') && ! version.includes('beta') ) {
-                // Only draft if we are going from beta -> release
                 draftJPPost(version, 'release');
             }
         } else {
@@ -137,7 +139,7 @@ async function maybeUpdateVersion(plugin, minorVersion, version) {
 }
 
 /**
- * Drafts a post on Lobby VIP for Jetpack releases.
+ * Drafts a post for Jetpack releases.
  *
  * @param {string} version - The version of Jetpack being released
  * @param {string} type - Type of post being drafted. Accepted values: beta, release
@@ -159,17 +161,20 @@ async function draftJPPost( version, type ) {
     if ( section ) {
         let title;
         let content;
+        let p2;
         if ( type === 'beta' ) {
             title = `Call for Testing: Jetpack ${version}`;
             content = createJPBetaPostContent(version, section);
+            p2 = LOBBY_URL;
         } else {
             title = `New Release: Jetpack ${version}`;
             content = createJPReleasePostContent(version, section);
+            p2 = CHANGELOG_URL;
         }
-        const post = await createJPPost( title, content );
+        const post = await createJPPost( title, content, type );
         if ( post.id ) {
-            const postUrl = `https://lobby.vip.wordpress.com/wp-admin/post.php?post=${post.id}&action=edit`
-            pingSlack(`<!subteam^S01SYE0V8TA> Jetpack ${version} draft created for review: ${postUrl}. Don't forget to deploy first before publishing!`);
+            const postUrl = `https://${p2}/wp-admin/post.php?post=${post.id}&action=edit`
+            pingSlack(`<!subteam^S01SYE0V8TA> Jetpack ${version} ${type} draft created for review: ${postUrl}. Don't forget to deploy first before publishing!`);
             return true;
         } else {
             pingSlack(`<!subteam^S01SYE0V8TA> Error creating Jetpack ${version} draft.`);
@@ -231,21 +236,38 @@ function extractChangelogSection(changelog, version, type) {
  *
  * @param {string} title - The title of the post
  * @param {string} content - The content of the post
+ * @param {string} type - The type of Jetpack announcement post
  * @returns {Object|bool} The response data from the API
  */
-async function createJPPost(title, content) {
+async function createJPPost(title, content, type) {
+    let p2;
+    let bearerToken;
+    let cat;
+    let tag;
+    if ( type === 'beta' ) {
+        p2 = LOBBY_URL;
+        bearerToken = LOBBY_VIP_TOKEN;
+        cat = 636069;
+        tag = 636069;
+    } else {
+        p2 = CHANGELOG_URL;
+        bearerToken = CHANGELOG_VIP_TOKEN;
+        cat = 1171;
+        tag = 5905;
+    }
+
     const data = {
         title: title,
         content: content,
         status: 'draft',
-        categories: 636069,
-        tags: 636069,
+        categories: cat,
+        tags: tag,
     };
 
-    return axios.post('https://public-api.wordpress.com/wp/v2/sites/lobby.vip.wordpress.com/posts', data, {
+    return axios.post(`https://public-api.wordpress.com/wp/v2/sites/${p2}/posts`, data, {
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${LOBBY_VIP_TOKEN}`
+                'Authorization': `Bearer ${bearerToken}`
             }
         })
         .then((response) => {
@@ -300,7 +322,7 @@ function createJPBetaPostContent(version, section) {
         month: 'long',
         day: 'numeric'
     });
-    const releaseDate = dateFormatter.format(today.setDate(today.getDate() + 9)); // Assumes it's a Tuesday
+    const releaseDate = dateFormatter.format(today.setDate(today.getDate() + 16)); // Assumes it's a Tuesday
     content += `<p>Jetpack ${officialVersion} will be deployed to VIP on <strong>${releaseDate}</strong>*. The upgrade is expected to be performed at 17:00 UTC (1:00PM ET).</p>`;
 
     content += `<p><i>*This deployment date and time are subject to change if issues are discovered during testing of the Jetpack release.</i></p>
@@ -311,7 +333,7 @@ function createJPBetaPostContent(version, section) {
     content += `<h1>What do I need to do?</h1>
     <p>We recommend the below:</p>
     <ol>
-    <li>Installing the release on your non-production sites using <a href="https://docs.wpvip.com/how-tos/jetpack/#h-pinning-to-a-version" target="_blank">these instructions</a>.</li>
+    <li>Installing the release on your non-production sites using <a href="https://docs.wpvip.com/how-tos/jetpack/version-updates/#h-pinning-to-a-version" target="_blank">these instructions</a>.</li>
     <li>Running through the testing flows outlined in the <a href="https://github.com/Automattic/jetpack/blob/trunk/projects/plugins/jetpack/to-test.md" target="_blank">Jetpack Testing Guide</a>.</li>
     </ol>
 
