@@ -14,12 +14,12 @@ jobs:
     name: A job to update Jetpack, Parse.ly and others
     steps:
       - name: Check out source code
-        uses: actions/checkout@v3.0.2
+        uses: actions/checkout@v4.1.1
         with:
           submodules: recursive
 
       - name: Setup Node
-        uses: actions/setup-node@v3.6.0
+        uses: actions/setup-node@v4.0.2
         with:
           cache: npm
           node-version: lts/*
