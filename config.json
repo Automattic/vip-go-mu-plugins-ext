@@ -56,9 +56,13 @@
   "parsely": {
     "repo": "https://github.com/Parsely/wp-parsely",
     "folderPrefix": "wp-parsely-",
-    "lowestVersion": "3.1",
+    "lowestVersion": "3.5",
     "skip": [
-      "3.4"
+      "3.6",
+      "3.8",
+      "3.9",
+      "3.10",
+      "3.11"
     ],
     "ignore": [],
     "current": {
