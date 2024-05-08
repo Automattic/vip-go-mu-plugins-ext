@@ -1,141 +1,152 @@
 #!/usr/bin/env node
 
-const { default: axios } = require('axios');
-const fs = require('fs');
-const { execSync } = require('child_process');
-const { compareVersions } = require( './utils' );
-const marked = require('marked');
+const { default: axios } = require("axios");
+const fs = require("fs");
+const { execSync } = require("child_process");
+const { compareVersions } = require("./utils");
+const marked = require("marked");
 
-const CONFIG_FILE = './config.json';
+const CONFIG_FILE = "./config.json";
 
 const { LOBBY_VIP_TOKEN, CHANGELOG_VIP_TOKEN } = process.env;
 
-const configFile = fs.readFileSync(CONFIG_FILE, 'utf8');
+const configFile = fs.readFileSync(CONFIG_FILE, "utf8");
 const globalConfig = JSON.parse(configFile);
-console.log('Config', globalConfig);
+console.log("Config", globalConfig);
 
-const LOBBY_URL = 'lobby.vip.wordpress.com';
-const CHANGELOG_URL = 'wpvipchangelog.wordpress.com';
+const LOBBY_URL = "lobby.vip.wordpress.com";
+const CHANGELOG_URL = "wpvipchangelog.wordpress.com";
 
 function incrementVersion(version, plugin) {
-    const [major, minor] = version.split('.').map(Number);
-    const maxMinor = plugin === 'jetpack' ? 9 : 20; // Since Jetpack version minors usually don't go over 9, we need to stop looking and jump to the next major.
-    let result = '';
-    if (minor === maxMinor) {
-        result = `${major + 1}.0`;
-    } else {
-        result = `${major}.${minor + 1}`;
-    }
+  const [major, minor] = version.split(".").map(Number);
+  const maxMinor = plugin === "jetpack" ? 9 : 20; // Since Jetpack version minors usually don't go over 9, we need to stop looking and jump to the next major.
+  let result = "";
+  if (minor === maxMinor) {
+    result = `${major + 1}.0`;
+  } else {
+    result = `${major}.${minor + 1}`;
+  }
 
-    return result;
+  return result;
 }
 
 function incrementPatchVersion(version, versionExists) {
-    const betaMatch = version.match(/beta(\d+)?/);
-    if (betaMatch && versionExists) {
-        const betaNumber = betaMatch && betaMatch[1] ? Number(betaMatch[1]) : 1;
-        return `beta${betaNumber + 1}`;
-    }
-    if (betaMatch) {
-        return '';
-    }
-    if (!version) {
-        return '1';
-    }
-    return (Number(version) + 1) + '';
+  const betaMatch = version.match(/beta(\d+)?/);
+  if (betaMatch && versionExists) {
+    const betaNumber = betaMatch && betaMatch[1] ? Number(betaMatch[1]) : 1;
+    return `beta${betaNumber + 1}`;
+  }
+  if (betaMatch) {
+    return "";
+  }
+  if (!version) {
+    return "1";
+  }
+  return Number(version) + 1 + "";
 }
 
 function formatVersion(plugin, minor, patch) {
-    if (!patch) {
-        return `${minor}`;
-    }
-    if (patch.startsWith('beta')) {
-        return `${minor}-${patch}`;
-    }
-    return `${minor}.${patch}`;
+  if (!patch) {
+    return `${minor}`;
+  }
+  if (patch.startsWith("beta")) {
+    return `${minor}-${patch}`;
+  }
+  return `${minor}.${patch}`;
 }
 
 async function checkVersionExists(plugin, version) {
-
-    try {
-        const exists = await axios.get(`${globalConfig[plugin].repo}/tree/${version}`);
-        return exists.status === 200;
-    } catch (e) {
-        return false
-    }
+  try {
+    const exists = await axios.get(
+      `${globalConfig[plugin].repo}/tree/${version}`
+    );
+    return exists.status === 200;
+  } catch (e) {
+    return false;
+  }
 }
 
 async function findPatch(plugin, minor) {
-    // TODO: this is dumb, and will likely need to be changed when we add next dependency that doesn't follow the semver pattern
-    let currentPatch = plugin === 'jetpack' ? 'beta' : '0';
-    let lastPatch = null;
-    let foundLastPatch = false;
+  // TODO: this is dumb, and will likely need to be changed when we add next dependency that doesn't follow the semver pattern
+  let currentPatch = plugin === "jetpack" ? "beta" : "0";
+  let lastPatch = null;
+  let foundLastPatch = false;
 
-    while (!foundLastPatch) {
-        const version = formatVersion(plugin, minor, currentPatch);
+  while (!foundLastPatch) {
+    const version = formatVersion(plugin, minor, currentPatch);
 
-        const exists = await checkVersionExists(plugin, version);
-        if (exists) {
-            lastPatch = currentPatch;
-        } else if (!currentPatch.startsWith('beta')) {
-            foundLastPatch = true;
-        }
-
-        currentPatch = incrementPatchVersion(currentPatch, exists);
+    const exists = await checkVersionExists(plugin, version);
+    if (exists) {
+      lastPatch = currentPatch;
+    } else if (!currentPatch.startsWith("beta")) {
+      foundLastPatch = true;
     }
-    return lastPatch;
+
+    currentPatch = incrementPatchVersion(currentPatch, exists);
+  }
+  return lastPatch;
 }
 
 async function pingSlack(message) {
-    if (process.env.SLACK_WEBHOOK) {
-        const payload = {
-            text: message,
-        };
-        await axios.post(process.env.SLACK_WEBHOOK, payload);
-    } else {
-        throw new Error('No slack webhook configured');
-    }
+  if (process.env.SLACK_WEBHOOK) {
+    const payload = {
+      text: message,
+    };
+    await axios.post(process.env.SLACK_WEBHOOK, payload);
+  } else {
+    throw new Error("No slack webhook configured");
+  }
 }
 
 async function maybeUpdateVersion(plugin, minorVersion, version) {
-    const config = globalConfig[plugin];
-    const folder = `${config.folderPrefix}${minorVersion}`;
+  const config = globalConfig[plugin];
+  const folder = `${config.folderPrefix}${minorVersion}`;
 
-    try {
-        if (config.current[minorVersion]) {
-            const oldVersion = config.current[minorVersion];
-            const versionCmp = compareVersions(version, oldVersion);
-            if (versionCmp < 0) {
-                console.log(`${minorVersion} tried to downgrade to ${version}, but skipped`);
-                return false;
-            } else if (versionCmp === 0) {
-                console.log(`${minorVersion} already up to date`);
-                return false;
-            }
-
-            // update
-            execSync(`git rm -r ${folder}`);
-            execSync(`git commit -m "Removing ${folder} for subtree replacement to ${version}"`);
-            const command = `git subtree add -P ${folder} --squash ${config.repo} ${version} -m "Update ${plugin} ${folder} subtree with tag ${version}"`;
-            execSync(command);
-            if ( plugin === 'jetpack' && oldVersion.includes('beta') && ! version.includes('beta') ) {
-                draftJPPost(version, 'release');
-            }
-        } else {
-            // add
-            const command = `git subtree add -P ${folder} --squash ${config.repo} ${version} -m "Add ${plugin} ${folder} subtree with tag ${version}"`;
-            execSync(command);
-            if ( plugin === 'jetpack' && version.includes( 'beta' ) ) {
-                draftJPPost(version, 'beta');
-            }
-        }
-        await pingSlack(`Updated ${folder} to ${version}\nhttps://github.com/Automattic/vip-go-mu-plugins-ext/commits/trunk`);
-        globalConfig[plugin].current[minorVersion] = version;
-        return true;
-    } catch (err) {
-        console.error(err);
+  try {
+    if (config.current[minorVersion]) {
+      const oldVersion = config.current[minorVersion];
+      const versionCmp = compareVersions(version, oldVersion);
+      if (versionCmp < 0) {
+        console.log(
+          `${minorVersion} tried to downgrade to ${version}, but skipped`
+        );
         return false;
+      } else if (versionCmp === 0) {
+        console.log(`${minorVersion} already up to date`);
+        return false;
+      }
+
+      // update
+      execSync(`git rm -r ${folder}`);
+      execSync(
+        `git commit -m "Removing ${folder} for subtree replacement to ${version}"`
+      );
+      const command = `git subtree add -P ${folder} --squash ${config.repo} ${version} -m "Update ${plugin} ${folder} subtree with tag ${version}"`;
+      execSync(command);
+      if (
+        plugin === "jetpack" &&
+        oldVersion.includes("beta") &&
+        !version.includes("beta")
+      ) {
+        draftJPPost(version, "release");
+      }
+    } else {
+      // add
+      const command = `git subtree add -P ${folder} --squash ${config.repo} ${version} -m "Add ${plugin} ${folder} subtree with tag ${version}"`;
+      execSync(command);
+      if (plugin === "jetpack" && version.includes("beta")) {
+        draftJPPost(version, "beta");
+      }
     }
+    await pingSlack(
+      `Updated ${folder} to ${version}\nhttps://github.com/Automattic/vip-go-mu-plugins-ext/commits/trunk`
+    );
+    globalConfig[plugin].current[minorVersion] = version;
+    return true;
+  } catch (err) {
+    console.error(err);
+    return false;
+  }
 }
 
 /**
@@ -145,44 +156,50 @@ async function maybeUpdateVersion(plugin, minorVersion, version) {
  * @param {string} type - Type of post being drafted. Accepted values: beta, release
  * @returns {boolean} Whether the post was successfully drafted or not
  */
-async function draftJPPost( version, type ) {
-    const allowedTypes = [ 'beta', 'release' ];
-    if ( ! allowedTypes.includes( type ) ) {
-        return false;
-    }
+async function draftJPPost(version, type) {
+  const allowedTypes = ["beta", "release"];
+  if (!allowedTypes.includes(type)) {
+    return false;
+  }
 
-    if ( type === 'beta' && ! version.includes( 'beta' ) ) {
-        return false;
-    }
+  if (type === "beta" && !version.includes("beta")) {
+    return false;
+  }
 
-    const changelog = await fetchChangelog( version );
-    const section = extractChangelogSection( changelog, version, type );
+  const changelog = await fetchChangelog(version);
+  const section = extractChangelogSection(changelog, version, type);
 
-    if ( section ) {
-        let title;
-        let content;
-        let p2;
-        if ( type === 'beta' ) {
-            title = `Call for Testing: Jetpack ${version}`;
-            content = createJPBetaPostContent(version, section);
-            p2 = LOBBY_URL;
-        } else {
-            title = `New Release: Jetpack ${version}`;
-            content = createJPReleasePostContent(version, section);
-            p2 = CHANGELOG_URL;
-        }
-        const post = await createJPPost( title, content, type );
-        if ( post.id ) {
-            const postUrl = `https://${p2}/wp-admin/post.php?post=${post.id}&action=edit`
-            pingSlack(`<!subteam^S01SYE0V8TA> Jetpack ${version} ${type} draft created for review: ${postUrl}. Don't forget to deploy first before publishing!`);
-            return true;
-        } else {
-            pingSlack(`<!subteam^S01SYE0V8TA> Error creating Jetpack ${version} draft.`);
-            return false;
-        }
+  if (section) {
+    let title;
+    let content;
+    let p2;
+    if (type === "beta") {
+      title = `Call for Testing: Jetpack ${version}`;
+      content = createJPBetaPostContent(version, section);
+      p2 = LOBBY_URL;
     } else {
-        pingSlack( `<!subteam^S01SYE0V8TA> Error generating Jetpack ${version} changelog. Please review and manually generate.` );
+      title = `New Release: Jetpack ${version}`;
+      content = createJPReleasePostContent(version, section);
+      p2 = CHANGELOG_URL;
     }
+    const post = await createJPPost(title, content, type);
+    if (post.id) {
+      const postUrl = `https://${p2}/wp-admin/post.php?post=${post.id}&action=edit`;
+      pingSlack(
+        `<!subteam^S01SYE0V8TA> Jetpack ${version} ${type} draft created for review: ${postUrl}. Don't forget to deploy first before publishing!`
+      );
+      return true;
+    } else {
+      pingSlack(
+        `<!subteam^S01SYE0V8TA> Error creating Jetpack ${version} draft.`
+      );
+      return false;
+    }
+  } else {
+    pingSlack(
+      `<!subteam^S01SYE0V8TA> Error generating Jetpack ${version} changelog. Please review and manually generate.`
+    );
+  }
 }
 
 /**
@@ -193,10 +210,10 @@ async function draftJPPost( version, type ) {
  * @returns {Promise<Object>} - The response data from the API
  */
 async function fetchChangelog(version) {
-    const url = `https://raw.githubusercontent.com/Automattic/jetpack-production/${version}/CHANGELOG.md`;
+  const url = `https://raw.githubusercontent.com/Automattic/jetpack-production/${version}/CHANGELOG.md`;
 
-    const response = await axios.get(url);
-    return response.data;
+  const response = await axios.get(url);
+  return response.data;
 }
 
 /**
@@ -208,27 +225,33 @@ async function fetchChangelog(version) {
  * @returns {string|bool} changelog section for the specified version
  */
 function extractChangelogSection(changelog, version, type) {
-    let regex = new RegExp(`^\\s*(## ${version}\\s.*?)^\\s*### Other changes`, 'ms');
-    let match = regex.exec(changelog);
+  let regex = new RegExp(
+    `^\\s*(## ${version}\\s.*?)^\\s*### Other changes`,
+    "ms"
+  );
+  let match = regex.exec(changelog);
 
-    if ( ! match && type === 'release' ) {
-        // Re-try with [x.x] format in changelog title since that's also used for releases
-        regex = new RegExp(`^\\s*(## \\[${version}\\]\\s.*?)^\\s*### Other changes`, 'ms');
-        match = regex.exec(changelog);
+  if (!match && type === "release") {
+    // Re-try with [x.x] format in changelog title since that's also used for releases
+    regex = new RegExp(
+      `^\\s*(## \\[${version}\\]\\s.*?)^\\s*### Other changes`,
+      "ms"
+    );
+    match = regex.exec(changelog);
+  }
+
+  if (match) {
+    const changes = match[1].trim();
+    // Strip first line out since it's just a heading
+    const firstLineRegex = new RegExp(`(?<=\\n).*`, "ms");
+    const section = firstLineRegex.exec(changes);
+    if (section) {
+      // Strip out the PR numbers since they're not needed
+      return section[0].replace(/(\s*\[#\d+])/g, "");
     }
+  }
 
-    if ( match ) {
-        const changes = match[1].trim();
-        // Strip first line out since it's just a heading
-        const firstLineRegex = new RegExp( `(?<=\\n).*`, 'ms' );
-        const section = firstLineRegex.exec( changes );
-        if ( section ) {
-            // Strip out the PR numbers since they're not needed
-            return section[0].replace( /(\s*\[#\d+])/g, '' );
-        }
-    }
-
-    return false;
+  return false;
 }
 
 /**
@@ -240,44 +263,45 @@ function extractChangelogSection(changelog, version, type) {
  * @returns {Object|bool} The response data from the API
  */
 async function createJPPost(title, content, type) {
-    let p2;
-    let bearerToken;
-    let cat;
-    let tag;
-    if ( type === 'beta' ) {
-        p2 = LOBBY_URL;
-        bearerToken = LOBBY_VIP_TOKEN;
-        cat = 636069;
-        tag = 636069;
-    } else {
-        p2 = CHANGELOG_URL;
-        bearerToken = CHANGELOG_VIP_TOKEN;
-        cat = 1171;
-        tag = 5905;
-    }
+  let p2;
+  let bearerToken;
+  let cat;
+  let tag;
+  if (type === "beta") {
+    p2 = LOBBY_URL;
+    bearerToken = LOBBY_VIP_TOKEN;
+    cat = 636069;
+    tag = 636069;
+  } else {
+    p2 = CHANGELOG_URL;
+    bearerToken = CHANGELOG_VIP_TOKEN;
+    cat = 1171;
+    tag = 5905;
+  }
 
-    const data = {
-        title: title,
-        content: content,
-        status: 'draft',
-        categories: cat,
-        tags: tag,
-    };
+  const data = {
+    title: title,
+    content: content,
+    status: "draft",
+    categories: cat,
+    tags: tag,
+  };
 
-    return axios.post(`https://public-api.wordpress.com/wp/v2/sites/${p2}/posts`, data, {
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${bearerToken}`
-            }
-        })
-        .then((response) => {
-            console.log(`Status Code: ${response.status}`);
-            console.log('Data:', response.data);
-            return response.data;
-        })
-        .catch((error) => {
-            console.error('Error:', error.message);
-            return false;
+  return axios
+    .post(`https://public-api.wordpress.com/wp/v2/sites/${p2}/posts`, data, {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${bearerToken}`,
+      },
+    })
+    .then((response) => {
+      console.log(`Status Code: ${response.status}`);
+      console.log("Data:", response.data);
+      return response.data;
+    })
+    .catch((error) => {
+      console.error("Error:", error.message);
+      return false;
     });
 }
 
@@ -289,18 +313,19 @@ async function createJPPost(title, content, type) {
  * @return {string} The body content for the Jetpack release post
  */
 function createJPReleasePostContent(version, section) {
-    const image = 'https://lobby-vip.files.wordpress.com/2021/05/3-v1_52018_preview-2.png?w=960';
-    let content = `<img src="${image}" alt="New Jetpack release">`;
-    content += `<p>Jetpack ${version} has been made the default Jetpack version on the VIP Platform.</p>`;
-    content += `<h1>What is being added or changed?</h1>`;
-    content += marked.parse(section);
+  const image =
+    "https://lobby-vip.files.wordpress.com/2021/05/3-v1_52018_preview-2.png?w=960";
+  let content = `<img src="${image}" alt="New Jetpack release">`;
+  content += `<p>Jetpack ${version} has been made the default Jetpack version on the VIP Platform.</p>`;
+  content += `<h1>What is being added or changed?</h1>`;
+  content += marked.parse(section);
 
-    const releaseNotesLink = `https://github.com/Automattic/jetpack-production/releases/tag/${version}`;
-    content += `<p>For more details about this release (including specific changes), please see the <a href="${releaseNotesLink}" target="_blank">release notes</a>.</p>`;
-    content += `<h3>Questions?</h3>`;
-    content += `If you have any questions, related to this release, please open a <a href="https://wpvip.com/documentation/developing-with-vip/accessing-vip-support/" target="_blank">support ticket</a> and we will be happy to assist.`;
+  const releaseNotesLink = `https://github.com/Automattic/jetpack-production/releases/tag/${version}`;
+  content += `<p>For more details about this release (including specific changes), please see the <a href="${releaseNotesLink}" target="_blank">release notes</a>.</p>`;
+  content += `<h3>Questions?</h3>`;
+  content += `If you have any questions, related to this release, please open a <a href="https://wpvip.com/documentation/developing-with-vip/accessing-vip-support/" target="_blank">support ticket</a> and we will be happy to assist.`;
 
-    return content;
+  return content;
 }
 
 /**
@@ -311,26 +336,26 @@ function createJPReleasePostContent(version, section) {
  * @returns {string} content - The generated content for the Lobby post
  */
 function createJPBetaPostContent(version, section) {
-    const downloadLink = `<a href="https://github.com/Automattic/jetpack-production/releases/tag/${version}">available here</a>`;
-    let content = `<p>Jetpack <strong>${version}</strong> is available now for testing and the download link is ${downloadLink} </p>`;
+  const downloadLink = `<a href="https://github.com/Automattic/jetpack-production/releases/tag/${version}">available here</a>`;
+  let content = `<p>Jetpack <strong>${version}</strong> is available now for testing and the download link is ${downloadLink} </p>`;
 
-    const officialVersion = version.replace(/-beta\d?/g, '');
-    const today = new Date();
-    const dateFormatter = new Intl.DateTimeFormat('en-US', {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-    });
-    const releaseDate = dateFormatter.format(today.setDate(today.getDate() + 16)); // Assumes it's a Tuesday
-    content += `<p>Jetpack ${officialVersion} will be deployed to VIP on <strong>${releaseDate}</strong>*. The upgrade is expected to be performed at 17:00 UTC (1:00PM ET).</p>`;
+  const officialVersion = version.replace(/-beta\d?/g, "");
+  const today = new Date();
+  const dateFormatter = new Intl.DateTimeFormat("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+  const releaseDate = dateFormatter.format(today.setDate(today.getDate() + 16)); // Assumes it's a Tuesday
+  content += `<p>Jetpack ${officialVersion} will be deployed to VIP on <strong>${releaseDate}</strong>*. The upgrade is expected to be performed at 17:00 UTC (1:00PM ET).</p>`;
 
-    content += `<p><i>*This deployment date and time are subject to change if issues are discovered during testing of the Jetpack release.</i></p>
+  content += `<p><i>*This deployment date and time are subject to change if issues are discovered during testing of the Jetpack release.</i></p>
     <p>A full list of changes is available in the <a href="https://github.com/Automattic/jetpack/commits/" target="_blank">commit log</a>.</p>
     <h1>What is being added or changed?</h1>`;
-    content += marked.parse(section);
+  content += marked.parse(section);
 
-    content += `<h1>What do I need to do?</h1>
+  content += `<h1>What do I need to do?</h1>
     <p>We recommend the below:</p>
     <ol>
     <li>Installing the release on your non-production sites using <a href="https://docs.wpvip.com/how-tos/jetpack/version-updates/#h-pinning-to-a-version" target="_blank">these instructions</a>.</li>
@@ -345,85 +370,90 @@ function createJPBetaPostContent(version, section) {
     <h2>Questions?</h2>
     <p>If you have any questions, related to this release, please <a href="https://docs.wpvip.com/technical-references/vip-support/" target="_blank">open a support ticket</a> and we will be happy to assist.</p>`;
 
-    return content;
+  return content;
 }
 
 function persistConfig() {
-    console.log('Persisting config', globalConfig);
+  console.log("Persisting config", globalConfig);
 
-    try {
-        fs.writeFileSync(CONFIG_FILE, JSON.stringify(globalConfig, null, 2));
-        execSync('git commit -avm "Update config.json"');
-    } catch( err ) {
-        console.error( err );
-    }
+  try {
+    fs.writeFileSync(CONFIG_FILE, JSON.stringify(globalConfig, null, 2));
+    execSync('git commit -avm "Update config.json"');
+  } catch (err) {
+    console.error(err);
+  }
 }
 
-
 function maybeConfigGit() {
-    let email = '';
-    try {
-        email = execSync('git config user.email').toString().trim();
-    } catch ( err ) {
-        console.error( err );
-    }
+  let email = "";
+  try {
+    email = execSync("git config user.email").toString().trim();
+  } catch (err) {
+    console.error(err);
+  }
 
-    if (!email) {
-        try {
-            execSync('git config user.email "Jetpack@update.bot"');
-            execSync('git config user.name "Jetpack Update Bot"');
-        } catch( err ) {
-            console.error( err );
-        }
+  if (!email) {
+    try {
+      execSync('git config user.email "Jetpack@update.bot"');
+      execSync('git config user.name "Jetpack Update Bot"');
+    } catch (err) {
+      console.error(err);
     }
+  }
 }
 
 function removeFolder(folderName) {
-    console.log(`Removing ${folderName}`);
+  console.log(`Removing ${folderName}`);
 
-    try {
-        fs.rmSync(folderName, { recursive: true });
-        execSync(`git add ${folderName}`)
-        execSync(`git commit -m "Removing ${folderName}"`);
-    } catch (err) {
-        console.error(err);
-    }
+  try {
+    fs.rmSync(folderName, { recursive: true });
+    execSync(`git add ${folderName}`);
+    execSync(`git commit -m "Removing ${folderName}"`);
+  } catch (err) {
+    console.error(err);
+  }
 }
 
 async function maybeUpdateVersions() {
-    let updatedSomething = false;
+  let updatedSomething = false;
 
-    for (const plugin in globalConfig) {
-        console.log(`Updating ${plugin}`);
+  for (const plugin in globalConfig) {
+    console.log(`Updating ${plugin}`);
 
-        const config = globalConfig[plugin];
-        console.log(config);
+    const config = globalConfig[plugin];
+    console.log(config);
 
-        let currentMinor = config.lowestVersion;
-        let foundLastMinor = false
-        while (!foundLastMinor) {
-            if (config.skip.includes(currentMinor) || config.ignore.includes(currentMinor)) {
-                console.log('Skipping', currentMinor);
-            } else {
-                console.log('Checking', currentMinor);
-                const patch = await findPatch(plugin, currentMinor);
-                if (patch === null) {
-                    console.log('Not found');
-                    foundLastMinor = true;
-                } else {
-                    const version = formatVersion(plugin, currentMinor, patch);
-                    console.log('Found:', version);
+    let currentMinor = config.lowestVersion;
+    let foundLastMinor = false;
+    while (!foundLastMinor) {
+      if (
+        config.skip.includes(currentMinor) ||
+        config.ignore.includes(currentMinor)
+      ) {
+        console.log("Skipping", currentMinor);
+      } else {
+        console.log("Checking", currentMinor);
+        const patch = await findPatch(plugin, currentMinor);
+        if (patch === null) {
+          console.log("Not found");
+          foundLastMinor = true;
+        } else {
+          const version = formatVersion(plugin, currentMinor, patch);
+          console.log("Found:", version);
 
-                    const updated = await maybeUpdateVersion(plugin, currentMinor, version);
-                    updatedSomething = updated || updatedSomething;
-
-                }
-            }
-            currentMinor = incrementVersion(currentMinor, plugin);
+          const updated = await maybeUpdateVersion(
+            plugin,
+            currentMinor,
+            version
+          );
+          updatedSomething = updated || updatedSomething;
         }
+      }
+      currentMinor = incrementVersion(currentMinor, plugin);
     }
+  }
 
-    return updatedSomething;
+  return updatedSomething;
 }
 
 /**
@@ -432,29 +462,33 @@ async function maybeUpdateVersions() {
  * @returns bool updatedSomething Whether something was deleted or not
  */
 async function maybeDeleteRemovedVersions() {
-    console.log('Checking existing folders');
+  console.log("Checking existing folders");
 
-    let updatedSomething = false;
-    const folders = fs.readdirSync('./');
-    for (const plugin in globalConfig) {
-        // Remove lower versions than the allowed lowest version.
-        let lowerVersions = await getLowerVersionsThanLowest( folders, plugin );
-        if ( lowerVersions.length > 0 ) {
-            for( const lowerVersion in lowerVersions ) {
-                const folder = globalConfig[plugin].folderPrefix + lowerVersions[lowerVersion];
-                delete globalConfig[plugin].current[lowerVersions[lowerVersion]]
-                updatedSomething = await removePluginVersion( folder ) || updatedSomething;
-            }
-        }
-        // If it's on the skip list, remove.
-        for ( const toRemove in globalConfig[plugin].skip ) {
-            const folder = globalConfig[plugin].folderPrefix + globalConfig[plugin].skip[toRemove];
-            delete globalConfig[plugin].current[toRemove]
-            updatedSomething = await removePluginVersion( folder ) || updatedSomething;
-        }
+  let updatedSomething = false;
+  const folders = fs.readdirSync("./");
+  for (const plugin in globalConfig) {
+    // Remove lower versions than the allowed lowest version.
+    let lowerVersions = await getLowerVersionsThanLowest(folders, plugin);
+    if (lowerVersions.length > 0) {
+      for (const lowerVersion in lowerVersions) {
+        const folder =
+          globalConfig[plugin].folderPrefix + lowerVersions[lowerVersion];
+        delete globalConfig[plugin].current[lowerVersions[lowerVersion]];
+        updatedSomething =
+          (await removePluginVersion(folder)) || updatedSomething;
+      }
     }
+    // If it's on the skip list, remove.
+    for (const toRemove in globalConfig[plugin].skip) {
+      const folder =
+        globalConfig[plugin].folderPrefix + globalConfig[plugin].skip[toRemove];
+      delete globalConfig[plugin].current[toRemove];
+      updatedSomething =
+        (await removePluginVersion(folder)) || updatedSomething;
+    }
+  }
 
-    return updatedSomething;
+  return updatedSomething;
 }
 
 /**
@@ -463,18 +497,20 @@ async function maybeDeleteRemovedVersions() {
  * @param string folder Plugin folder to remove
  * @returns bool Whether plugin folder was removed or not
  */
-async function removePluginVersion( folder ) {
-    if ( ! fs.existsSync( folder ) ) {
-        return false;
-    }
+async function removePluginVersion(folder) {
+  if (!fs.existsSync(folder)) {
+    return false;
+  }
 
-    removeFolder( folder );
-    try {
-        await pingSlack(`Removed ${folder}\nhttps://github.com/Automattic/vip-go-mu-plugins-ext/commits/trunk`);
-    } catch ( err ) {
-        console.error( err );
-    }
-    return true;
+  removeFolder(folder);
+  try {
+    await pingSlack(
+      `Removed ${folder}\nhttps://github.com/Automattic/vip-go-mu-plugins-ext/commits/trunk`
+    );
+  } catch (err) {
+    console.error(err);
+  }
+  return true;
 }
 
 /**
@@ -486,37 +522,39 @@ async function removePluginVersion( folder ) {
  * @param string plugin Plugin name
  * @returns array lowerVersion Lowest version allowed for plugin
  */
-async function getLowerVersionsThanLowest( folders, plugin ) {
-    let lowerVersions = [];
-    const folderPrefix = globalConfig[plugin].folderPrefix;
-    for( const folder in folders ) {
-        if ( ! folders[folder].startsWith( folderPrefix ) ) {
-            continue;
-        }
-        const versionNumber = folders[folder].substring( folderPrefix.length );
-        if ( -1 === compareVersions( versionNumber, globalConfig[plugin].lowestVersion ) ) {
-            lowerVersions.push( versionNumber );
-        }
+async function getLowerVersionsThanLowest(folders, plugin) {
+  let lowerVersions = [];
+  const folderPrefix = globalConfig[plugin].folderPrefix;
+  for (const folder in folders) {
+    if (!folders[folder].startsWith(folderPrefix)) {
+      continue;
     }
-    return lowerVersions;
+    const versionNumber = folders[folder].substring(folderPrefix.length);
+    if (
+      -1 === compareVersions(versionNumber, globalConfig[plugin].lowestVersion)
+    ) {
+      lowerVersions.push(versionNumber);
+    }
+  }
+  return lowerVersions;
 }
 
 async function main() {
-    maybeConfigGit();
+  maybeConfigGit();
 
-    let updatedSomething = false;
+  let updatedSomething = false;
 
-    updatedSomething = await maybeUpdateVersions();
-    updatedSomething = await maybeDeleteRemovedVersions() || updatedSomething;
+  updatedSomething = await maybeUpdateVersions();
+  updatedSomething = (await maybeDeleteRemovedVersions()) || updatedSomething;
 
-    if (updatedSomething) {
-        persistConfig();
-        try {
-            execSync('git push');
-        } catch( err ) {
-            console.error( err );
-        }
+  if (updatedSomething) {
+    persistConfig();
+    try {
+      execSync("git push");
+    } catch (err) {
+      console.error(err);
     }
+  }
 }
 
 main();
