@@ -9,6 +9,8 @@ namespace Automattic\Jetpack\Waf;
 
 use Automattic\Jetpack\Status\Host;
 
+return; // noop
+
 // We don't want to be anything in here outside WP context.
 if ( ! function_exists( 'add_action' ) ) {
 	return;
