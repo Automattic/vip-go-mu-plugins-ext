@@ -70,6 +70,5 @@ List of versions that should be fully ignored by upgrader. That means not update
 
 ## Jetpack
 
-* 10.9 - Fix SSO change + backported https://github.com/Automattic/jetpack/pull/31072
 * 11.9 - Fix Publicize bug + backported https://github.com/Automattic/jetpack/pull/31072
-* 10.9, 11.1, 11.2, 11.3, 11.4, 11.5, 11.6, 11.7, 11.8, 11.9, 12.0, 12.1, 12.2, 12.3 - To prevent undoing of https://github.com/Automattic/vip-go-mu-plugins-ext/commit/82b8a5e608825ba7dd2395f7210e3a010c18e2c8
+* 11.3, 11.6, 11.9, 12.0, 12.3 - To prevent undoing of https://github.com/Automattic/vip-go-mu-plugins-ext/commit/82b8a5e608825ba7dd2395f7210e3a010c18e2c8
