@@ -2,18 +2,8 @@
   "jetpack": {
     "repo": "https://github.com/Automattic/jetpack-production",
     "folderPrefix": "jetpack-",
-    "lowestVersion": "11.6",
+    "lowestVersion": "12.3",
     "skip": [
-      "11.0",
-      "11.3",
-      "11.4",
-      "11.5",
-      "11.7",
-      "11.8",
-      "11.9",
-      "12.0",
-      "12.1",
-      "12.2",
       "12.4",
       "12.6",
       "12.7",
@@ -22,7 +12,6 @@
       "13.4"
     ],
     "ignore": [
-      "11.6",
       "12.3"
     ],
     "current": {
