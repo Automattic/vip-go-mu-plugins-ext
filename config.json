@@ -43,15 +43,15 @@
       "13.8": "13.8.2",
       "13.9": "13.9.1",
       "14.0": "14.0",
-      "14.1": "14.1"
+      "14.1": "14.1",
+      "14.2": "14.2-beta"
     }
   },
   "parsely": {
     "repo": "https://github.com/Parsely/wp-parsely",
     "folderPrefix": "wp-parsely-",
     "lowestVersion": "3.15",
-    "skip": [
-    ],
+    "skip": [],
     "ignore": [],
     "current": {
       "3.15": "3.15.0",
