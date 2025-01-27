@@ -1,17 +1,5 @@
 .devenvignore
-/jetpack-11.1/
-/jetpack-11.2/
-/jetpack-11.3/
-/jetpack-11.6/
-/jetpack-11.8/
-/jetpack-11.9/
-/jetpack-12.1/
-/jetpack-12.2/
 /jetpack-12.3/
-/jetpack-12.4/
-/jetpack-12.6/
-/jetpack-12.7/
-/jetpack-12.9/
 /jetpack-13.0/
 /jetpack-13.2/
 /jetpack-13.3/
@@ -21,3 +9,4 @@
 /jetpack-13.8/
 /jetpack-13.9/
 /jetpack-14.0/
+/jetpack-14.1/
