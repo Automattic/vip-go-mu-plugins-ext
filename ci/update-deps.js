@@ -347,7 +347,7 @@ function createJPBetaPostContent(version, section) {
     month: "long",
     day: "numeric",
   });
-  const releaseDate = dateFormatter.format(today.setDate(today.getDate() + 16)); // Assumes it's a Tuesday
+  const releaseDate = dateFormatter.format(today.setDate(today.getDate() + 15)); // Assumes it's a Tuesday
   content += `<p>Jetpack ${officialVersion} will be deployed to VIP on <strong>${releaseDate}</strong>*. The upgrade is expected to be performed at 17:00 UTC (1:00PM ET).</p>`;
 
   content += `<p><i>*This deployment date and time are subject to change if issues are discovered during testing of the Jetpack release.</i></p>
