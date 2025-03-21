@@ -90,6 +90,9 @@
     "folderPrefix": "vip-integrations/remote-data-blocks-",
     "lowestVersion": "0.9",
     "skip": [],
-    "ignore": []
+    "ignore": [],
+    "current": {
+      "0.9": "0.9.1"
+    }
   }
 }
