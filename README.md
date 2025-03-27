@@ -40,6 +40,7 @@ Each entry in config.json should follow the following format:
     "repo": "https://github.com/Automattic/awesome-plugin",
     "folderPrefix": "awesome-plugin-",
     "lowestVersion": "3.1",
+    "versionPrefix": "",
     "skip": [
       "3.4"
     ],
@@ -53,7 +54,6 @@ Each entry in config.json should follow the following format:
 }
 ```
 
-
 ## `lowestVersion`
 
 The version to start scanning dependency tags from. Updater will delete versions lower than `lowestVersion`.
@@ -65,6 +65,10 @@ List of versions to be excluded from the updater. This is used for higher versio
 ## `ignore`
 
 List of versions that should be fully ignored by upgrader. That means not update, add or remove them. This is useful if we for some reason want to diverge from the upstream (a hotfix, VIP-specific patch, etc.
+
+## `versionPrefix`
+
+Optional string prefix used in version numbers. For example, if a plugin uses "v1.2.3" rather than "1.2.3", set this to "v". The updater will handle stripping and adding this prefix when comparing versions.
 
 # Ignored versions
 

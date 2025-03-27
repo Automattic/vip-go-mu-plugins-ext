@@ -88,11 +88,10 @@
   "remote-data-blocks": {
     "repo": "https://github.com/Automattic/remote-data-blocks",
     "folderPrefix": "vip-integrations/remote-data-blocks-",
-    "lowestVersion": "0.9",
+    "versionPrefix": "v",
+    "lowestVersion": "v0.9",
     "skip": [],
     "ignore": [],
-    "current": {
-      "0.9": "0.9.1"
-    }
+    "current": {}
   }
 }

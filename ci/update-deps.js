@@ -3,7 +3,7 @@
 const { default: axios } = require("axios");
 const fs = require("fs");
 const { execSync } = require("child_process");
-const { compareVersions } = require("./utils");
+const { compareVersions, stripVersionPrefix, addVersionPrefix } = require("./utils");
 const marked = require("marked");
 
 const CONFIG_FILE = "./config.json";
@@ -17,8 +17,14 @@ console.log("Config", globalConfig);
 const LOBBY_URL = "lobby.vip.wordpress.com";
 const CHANGELOG_URL = "wpvipchangelog.wordpress.com";
 
-function incrementVersion(version, plugin) {
-  const [major, minor] = version.split(".").map(Number);
+function getVersionPrefix(plugin) {
+  return globalConfig[plugin].versionPrefix || "";
+}
+
+function incrementVersion(plugin, version) {
+  const versionPrefix = getVersionPrefix(plugin);
+  const strippedVersion = stripVersionPrefix(version, versionPrefix);
+  const [major, minor] = strippedVersion.split(".").map(Number);
   const maxMinor = plugin === "jetpack" ? 9 : 20; // Since Jetpack version minors usually don't go over 9, we need to stop looking and jump to the next major.
   let result = "";
   if (minor === maxMinor) {
@@ -27,7 +33,7 @@ function incrementVersion(version, plugin) {
     result = `${major}.${minor + 1}`;
   }
 
-  return result;
+  return addVersionPrefix(result, getVersionPrefix(plugin));
 }
 
 function incrementPatchVersion(version, versionExists) {
@@ -45,7 +51,7 @@ function incrementPatchVersion(version, versionExists) {
   return Number(version) + 1 + "";
 }
 
-function formatVersion(plugin, minor, patch) {
+function formatVersion(minor, patch) {
   if (!patch) {
     return `${minor}`;
   }
@@ -73,7 +79,7 @@ async function findPatch(plugin, minor) {
   let foundLastPatch = false;
 
   while (!foundLastPatch) {
-    const version = formatVersion(plugin, minor, currentPatch);
+    const version = formatVersion(minor, currentPatch);
 
     const exists = await checkVersionExists(plugin, version);
     if (exists) {
@@ -101,11 +107,12 @@ async function pingSlack(message) {
 async function maybeUpdateVersion(plugin, minorVersion, version) {
   const config = globalConfig[plugin];
   const folder = `${config.folderPrefix}${minorVersion}`;
+  const versionPrefix = getVersionPrefix(plugin);
 
   try {
     if (config.current[minorVersion]) {
       const oldVersion = config.current[minorVersion];
-      const versionCmp = compareVersions(version, oldVersion);
+      const versionCmp = compareVersions(version, oldVersion, versionPrefix);
       if (versionCmp < 0) {
         console.log(
           `${minorVersion} tried to downgrade to ${version}, but skipped`
@@ -438,7 +445,7 @@ async function maybeUpdateVersions() {
           console.log("Not found");
           foundLastMinor = true;
         } else {
-          const version = formatVersion(plugin, currentMinor, patch);
+          const version = formatVersion(currentMinor, patch);
           console.log("Found:", version);
 
           const updated = await maybeUpdateVersion(
@@ -449,7 +456,7 @@ async function maybeUpdateVersions() {
           updatedSomething = updated || updatedSomething;
         }
       }
-      currentMinor = incrementVersion(currentMinor, plugin);
+      currentMinor = incrementVersion(plugin, currentMinor);
     }
   }
 
@@ -525,13 +532,14 @@ async function removePluginVersion(folder) {
 async function getLowerVersionsThanLowest(folders, plugin) {
   let lowerVersions = [];
   const folderPrefix = globalConfig[plugin].folderPrefix;
+  const versionPrefix = getVersionPrefix(plugin);
   for (const folder in folders) {
     if (!folders[folder].startsWith(folderPrefix)) {
       continue;
     }
     const versionNumber = folders[folder].substring(folderPrefix.length);
     if (
-      -1 === compareVersions(versionNumber, globalConfig[plugin].lowestVersion)
+      -1 === compareVersions(versionNumber, globalConfig[plugin].lowestVersion, versionPrefix)
     ) {
       lowerVersions.push(versionNumber);
     }
