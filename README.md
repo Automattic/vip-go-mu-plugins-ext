@@ -28,6 +28,40 @@ The [VIP Block Data API](https://github.com/Automattic/vip-block-data-api/) is a
 
 ...profit?
 
+## Running and Debugging the Updater Script
+
+### Setup
+
+Before running the script for the first time, you need to install its npm dependencies:
+
+```bash
+cd ci/
+npm install
+```
+
+### Running the script
+
+The update-deps script can be run in two modes:
+
+1. **Normal mode**: Updates and commits changes to the repository. It would be run in this mode in the [update-deps](.github/workflows/update-deps.yml) github action.
+
+   ```bash
+   node ci/update-deps.js
+   ```
+
+2. **Dry run mode**: Shows what would happen without making any changes - useful during development
+   ```bash
+   node ci/update-deps.js --dry-run
+   ```
+
+When running in dry run mode, the script will:
+- Log all git commands instead of executing them
+- Log Slack notifications instead of sending them
+- Log WordPress post creations instead of publishing them
+- Still check for version information and report what would be updated
+
+This is useful for testing changes to the update process or previewing updates before applying them.
+
 # Configuration
 
 Hopefully the only upkeep we need to do is to change [config](./config.json). And only to remove or skip a version. **Additions** and **updates** should happen on its own.
