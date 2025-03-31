@@ -2,23 +2,39 @@
 
 const { default: axios } = require("axios");
 const fs = require("fs");
+const path = require("path");
 const { execSync } = require("child_process");
-const { compareVersions } = require("./utils");
+const { compareVersions, stripVersionPrefix, addVersionPrefix } = require("./utils");
 const marked = require("marked");
 
-const CONFIG_FILE = "./config.json";
+// Resolve the path to config.json relative to the script's location
+const CONFIG_FILE_PATH = path.resolve(__dirname, "../config.json");
 
 const { LOBBY_VIP_TOKEN, CHANGELOG_VIP_TOKEN } = process.env;
 
-const configFile = fs.readFileSync(CONFIG_FILE, "utf8");
+// Parse command line arguments
+const args = process.argv.slice(2);
+const DRY_RUN = args.includes("--dry-run");
+
+if (DRY_RUN) {
+  console.log("🔍 Running in DRY RUN mode - no changes will be committed or pushed");
+}
+
+const configFile = fs.readFileSync(CONFIG_FILE_PATH, "utf8");
 const globalConfig = JSON.parse(configFile);
 console.log("Config", globalConfig);
 
 const LOBBY_URL = "lobby.vip.wordpress.com";
 const CHANGELOG_URL = "wpvipchangelog.wordpress.com";
 
-function incrementVersion(version, plugin) {
-  const [major, minor] = version.split(".").map(Number);
+function getVersionPrefix(plugin) {
+  return globalConfig[plugin].versionPrefix || "";
+}
+
+function incrementVersion(plugin, version) {
+  const versionPrefix = getVersionPrefix(plugin);
+  const strippedVersion = stripVersionPrefix(version, versionPrefix);
+  const [major, minor] = strippedVersion.split(".").map(Number);
   const maxMinor = plugin === "jetpack" ? 9 : 20; // Since Jetpack version minors usually don't go over 9, we need to stop looking and jump to the next major.
   let result = "";
   if (minor === maxMinor) {
@@ -27,7 +43,7 @@ function incrementVersion(version, plugin) {
     result = `${major}.${minor + 1}`;
   }
 
-  return result;
+  return addVersionPrefix(result, getVersionPrefix(plugin));
 }
 
 function incrementPatchVersion(version, versionExists) {
@@ -45,7 +61,7 @@ function incrementPatchVersion(version, versionExists) {
   return Number(version) + 1 + "";
 }
 
-function formatVersion(plugin, minor, patch) {
+function formatVersion(minor, patch) {
   if (!patch) {
     return `${minor}`;
   }
@@ -73,7 +89,7 @@ async function findPatch(plugin, minor) {
   let foundLastPatch = false;
 
   while (!foundLastPatch) {
-    const version = formatVersion(plugin, minor, currentPatch);
+    const version = formatVersion(minor, currentPatch);
 
     const exists = await checkVersionExists(plugin, version);
     if (exists) {
@@ -87,7 +103,26 @@ async function findPatch(plugin, minor) {
   return lastPatch;
 }
 
+/**
+ * Executes a command or logs it in dry run mode
+ * 
+ * @param {string} command Command to execute
+ * @returns {string|null} Command output or null in dry run mode
+ */
+function execCommand(command) {
+  if (DRY_RUN) {
+    console.log(`[DRY RUN] Would execute: ${command}`);
+  } else {
+    return execSync(command);
+  }
+}
+
 async function pingSlack(message) {
+  if (DRY_RUN) {
+    console.log(`[DRY RUN] Would send Slack message: ${message}`);
+    return;
+  }
+
   if (process.env.SLACK_WEBHOOK) {
     const payload = {
       text: message,
@@ -101,11 +136,12 @@ async function pingSlack(message) {
 async function maybeUpdateVersion(plugin, minorVersion, version) {
   const config = globalConfig[plugin];
   const folder = `${config.folderPrefix}${minorVersion}`;
+  const versionPrefix = getVersionPrefix(plugin);
 
   try {
     if (config.current[minorVersion]) {
       const oldVersion = config.current[minorVersion];
-      const versionCmp = compareVersions(version, oldVersion);
+      const versionCmp = compareVersions(version, oldVersion, versionPrefix);
       if (versionCmp < 0) {
         console.log(
           `${minorVersion} tried to downgrade to ${version}, but skipped`
@@ -117,12 +153,12 @@ async function maybeUpdateVersion(plugin, minorVersion, version) {
       }
 
       // update
-      execSync(`git rm -r ${folder}`);
-      execSync(
+      execCommand(`git rm -r ${folder}`);
+      execCommand(
         `git commit -m "Removing ${folder} for subtree replacement to ${version}"`
       );
       const command = `git subtree add -P ${folder} --squash ${config.repo} ${version} -m "Update ${plugin} ${folder} subtree with tag ${version}"`;
-      execSync(command);
+      execCommand(command);
       if (
         plugin === "jetpack" &&
         oldVersion.includes("beta") &&
@@ -133,7 +169,7 @@ async function maybeUpdateVersion(plugin, minorVersion, version) {
     } else {
       // add
       const command = `git subtree add -P ${folder} --squash ${config.repo} ${version} -m "Add ${plugin} ${folder} subtree with tag ${version}"`;
-      execSync(command);
+      execCommand(command);
       if (plugin === "jetpack" && version.includes("beta")) {
         draftJPPost(version, "beta");
       }
@@ -182,6 +218,7 @@ async function draftJPPost(version, type) {
       content = createJPReleasePostContent(version, section);
       p2 = CHANGELOG_URL;
     }
+
     const post = await createJPPost(title, content, type);
     if (post.id) {
       const postUrl = `https://${p2}/wp-admin/post.php?post=${post.id}&action=edit`;
@@ -263,6 +300,11 @@ function extractChangelogSection(changelog, version, type) {
  * @returns {Object|bool} The response data from the API
  */
 async function createJPPost(title, content, type) {
+  if (DRY_RUN) {
+    console.log(`[DRY RUN] Would create Jetpack post: "${title}"`);
+    return { id: 12345 }; // Mock ID for dry run
+  }
+
   let p2;
   let bearerToken;
   let cat;
@@ -377,8 +419,8 @@ function persistConfig() {
   console.log("Persisting config", globalConfig);
 
   try {
-    fs.writeFileSync(CONFIG_FILE, JSON.stringify(globalConfig, null, 2));
-    execSync('git commit -avm "Update config.json"');
+    fs.writeFileSync(CONFIG_FILE_PATH, JSON.stringify(globalConfig, null, 2));
+    execCommand('git commit -avm "Update config.json"');
   } catch (err) {
     console.error(err);
   }
@@ -394,8 +436,8 @@ function maybeConfigGit() {
 
   if (!email) {
     try {
-      execSync('git config user.email "Jetpack@update.bot"');
-      execSync('git config user.name "Jetpack Update Bot"');
+      execCommand('git config user.email "Jetpack@update.bot"');
+      execCommand('git config user.name "Jetpack Update Bot"');
     } catch (err) {
       console.error(err);
     }
@@ -403,12 +445,15 @@ function maybeConfigGit() {
 }
 
 function removeFolder(folderName) {
-  console.log(`Removing ${folderName}`);
+  if (DRY_RUN) {
+    console.log(`[DRY RUN] Would remove ${folderName}`);
+    return;
+  }
 
   try {
     fs.rmSync(folderName, { recursive: true });
-    execSync(`git add ${folderName}`);
-    execSync(`git commit -m "Removing ${folderName}"`);
+    execCommand(`git add ${folderName}`);
+    execCommand(`git commit -m "Removing ${folderName}"`);
   } catch (err) {
     console.error(err);
   }
@@ -438,7 +483,7 @@ async function maybeUpdateVersions() {
           console.log("Not found");
           foundLastMinor = true;
         } else {
-          const version = formatVersion(plugin, currentMinor, patch);
+          const version = formatVersion(currentMinor, patch);
           console.log("Found:", version);
 
           const updated = await maybeUpdateVersion(
@@ -449,7 +494,7 @@ async function maybeUpdateVersions() {
           updatedSomething = updated || updatedSomething;
         }
       }
-      currentMinor = incrementVersion(currentMinor, plugin);
+      currentMinor = incrementVersion(plugin, currentMinor);
     }
   }
 
@@ -525,13 +570,14 @@ async function removePluginVersion(folder) {
 async function getLowerVersionsThanLowest(folders, plugin) {
   let lowerVersions = [];
   const folderPrefix = globalConfig[plugin].folderPrefix;
+  const versionPrefix = getVersionPrefix(plugin);
   for (const folder in folders) {
     if (!folders[folder].startsWith(folderPrefix)) {
       continue;
     }
     const versionNumber = folders[folder].substring(folderPrefix.length);
     if (
-      -1 === compareVersions(versionNumber, globalConfig[plugin].lowestVersion)
+      -1 === compareVersions(versionNumber, globalConfig[plugin].lowestVersion, versionPrefix)
     ) {
       lowerVersions.push(versionNumber);
     }
@@ -550,7 +596,7 @@ async function main() {
   if (updatedSomething) {
     persistConfig();
     try {
-      execSync("git push");
+      execCommand("git push");
     } catch (err) {
       console.error(err);
     }
