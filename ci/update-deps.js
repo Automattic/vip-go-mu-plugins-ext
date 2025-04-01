@@ -6,6 +6,7 @@ const path = require("path");
 const { execSync } = require("child_process");
 const { compareVersions, stripVersionPrefix, addVersionPrefix } = require("./utils");
 const marked = require("marked");
+const os = require("os");
 
 // Resolve the path to config.json relative to the script's location
 const CONFIG_FILE_PATH = path.resolve(__dirname, "../config.json");
@@ -104,6 +105,69 @@ async function findPatch(plugin, minor) {
 }
 
 /**
+ * Downloads and extracts a plugin release zip file.
+ *
+ * @param {string} plugin Plugin name
+ * @param {string} version Version tag to download
+ * @param {string} folder Destination folder to extract to
+ * @returns {boolean} Whether the download and extraction was successful
+ */
+async function downloadReleaseZip(plugin, version, folder) {
+  const config = globalConfig[plugin];
+  const repoUrl = config.repo;
+  const releaseZipFileName = config.releaseZipFileName;
+  const zipUrl = `${repoUrl}/releases/download/${version}/${releaseZipFileName}.zip`;
+  
+  // Check for dry run mode at the beginning
+  if (DRY_RUN) {
+    console.log(`[DRY RUN] Would download and extract ${zipUrl} to ${folder}`);
+    return true;
+  }
+  
+  console.log(`Downloading zip from ${zipUrl}...`);
+  
+  try {
+    // Create parent directory for the folder if needed
+    const parentDir = path.dirname(folder);
+    if (!fs.existsSync(parentDir)) {
+      fs.mkdirSync(parentDir, { recursive: true });
+    }
+    
+    // Download the zip file to a temporary location
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), `${plugin}-${version}-`));
+    const tempZipPath = path.join(tempDir, 'temp.zip');
+    
+    try {
+      const response = await axios({
+        method: 'get',
+        url: zipUrl,
+        responseType: 'arraybuffer'
+      });
+      
+      fs.writeFileSync(tempZipPath, response.data);
+      console.log(`Downloaded zip to temporary location`);
+      
+      // Extract directly to the right location
+      execSync(`unzip -o ${tempZipPath} -d ${folder}`);
+      
+      // Clean up temp directory
+      fs.rmSync(tempDir, { recursive: true, force: true });
+      
+      console.log(`Successfully downloaded and extracted ${plugin} ${version} to ${folder}`);
+      return true;
+    } catch (error) {
+      // Clean up temp directory on error
+      if (fs.existsSync(tempDir)) {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      }
+      throw error;
+    }
+  } catch (error) {
+    throw new Error(`Failed to download or extract ${plugin} ${version}: ${error.message}`);
+  }
+}
+
+/**
  * Executes a command or logs it in dry run mode
  * 
  * @param {string} command Command to execute
@@ -157,8 +221,16 @@ async function maybeUpdateVersion(plugin, minorVersion, version) {
       execCommand(
         `git commit -m "Removing ${folder} for subtree replacement to ${version}"`
       );
-      const command = `git subtree add -P ${folder} --squash ${config.repo} ${version} -m "Update ${plugin} ${folder} subtree with tag ${version}"`;
-      execCommand(command);
+
+      if (config.releaseZipFileName) {
+        await downloadReleaseZip(plugin, version, folder);
+        execCommand(`git add ${folder}`);
+        execCommand(`git commit -m "Update ${plugin} ${folder} with tag ${version}"`);
+      } else {
+        const command = `git subtree add -P ${folder} --squash ${config.repo} ${version} -m "Update ${plugin} ${folder} subtree with tag ${version}"`;
+        execCommand(command);
+      }
+
       if (
         plugin === "jetpack" &&
         oldVersion.includes("beta") &&
@@ -168,8 +240,14 @@ async function maybeUpdateVersion(plugin, minorVersion, version) {
       }
     } else {
       // add
-      const command = `git subtree add -P ${folder} --squash ${config.repo} ${version} -m "Add ${plugin} ${folder} subtree with tag ${version}"`;
-      execCommand(command);
+      if (config.releaseZipFileName) {
+        await downloadReleaseZip(plugin, version, folder);
+        execCommand(`git add ${folder}`);
+        execCommand(`git commit -m "Add ${plugin} ${folder} with tag ${version}"`);
+      } else {
+        const command = `git subtree add -P ${folder} --squash ${config.repo} ${version} -m "Add ${plugin} ${folder} subtree with tag ${version}"`;
+        execCommand(command);
+      }
       if (plugin === "jetpack" && version.includes("beta")) {
         draftJPPost(version, "beta");
       }
