@@ -199,7 +199,7 @@ async function pingSlack(message) {
 
 async function maybeUpdateVersion(plugin, minorVersion, version) {
   const config = globalConfig[plugin];
-  const folder = `${config.folderPrefix}${minorVersion}`;
+  const folder = `${config.folderPrefix}${stripVersionPrefix(minorVersion, getVersionPrefix(plugin))}`;
   const versionPrefix = getVersionPrefix(plugin);
 
   try {
@@ -595,7 +595,7 @@ async function maybeDeleteRemovedVersions() {
     if (lowerVersions.length > 0) {
       for (const lowerVersion in lowerVersions) {
         const folder =
-          globalConfig[plugin].folderPrefix + lowerVersions[lowerVersion];
+          globalConfig[plugin].folderPrefix + stripVersionPrefix(lowerVersions[lowerVersion], getVersionPrefix(plugin));
         delete globalConfig[plugin].current[lowerVersions[lowerVersion]];
         updatedSomething =
           (await removePluginVersion(folder)) || updatedSomething;
@@ -604,7 +604,7 @@ async function maybeDeleteRemovedVersions() {
     // If it's on the skip list, remove.
     for (const toRemove in globalConfig[plugin].skip) {
       const folder =
-        globalConfig[plugin].folderPrefix + globalConfig[plugin].skip[toRemove];
+        globalConfig[plugin].folderPrefix + stripVersionPrefix(globalConfig[plugin].skip[toRemove], getVersionPrefix(plugin));
       delete globalConfig[plugin].current[toRemove];
       updatedSomething =
         (await removePluginVersion(folder)) || updatedSomething;
