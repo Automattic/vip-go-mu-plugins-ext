@@ -4,7 +4,7 @@ const { default: axios } = require("axios");
 const fs = require("fs");
 const path = require("path");
 const { execSync } = require("child_process");
-const { compareVersions, stripVersionPrefix, addVersionPrefix } = require("./utils");
+const { compareVersions, addVersionPrefix } = require("./utils");
 const marked = require("marked");
 const os = require("os");
 
@@ -28,14 +28,13 @@ console.log("Config", globalConfig);
 const LOBBY_URL = "lobby.vip.wordpress.com";
 const CHANGELOG_URL = "wpvipchangelog.wordpress.com";
 
-function getVersionPrefix(plugin) {
-  return globalConfig[plugin].versionPrefix || "";
+function getPrefixedVersion(plugin, version) {
+  const versionPrefix = globalConfig[plugin].versionPrefix || "";
+  return addVersionPrefix(version, versionPrefix);
 }
 
 function incrementVersion(plugin, version) {
-  const versionPrefix = getVersionPrefix(plugin);
-  const strippedVersion = stripVersionPrefix(version, versionPrefix);
-  const [major, minor] = strippedVersion.split(".").map(Number);
+  const [major, minor] = version.split(".").map(Number);
   const maxMinor = plugin === "jetpack" ? 9 : 20; // Since Jetpack version minors usually don't go over 9, we need to stop looking and jump to the next major.
   let result = "";
   if (minor === maxMinor) {
@@ -44,7 +43,7 @@ function incrementVersion(plugin, version) {
     result = `${major}.${minor + 1}`;
   }
 
-  return addVersionPrefix(result, getVersionPrefix(plugin));
+  return result;
 }
 
 function incrementPatchVersion(version, versionExists) {
@@ -74,8 +73,9 @@ function formatVersion(minor, patch) {
 
 async function checkVersionExists(plugin, version) {
   try {
+    const prefixedVersion = getPrefixedVersion(plugin, version);
     const exists = await axios.get(
-      `${globalConfig[plugin].repo}/tree/${version}`
+      `${globalConfig[plugin].repo}/tree/${prefixedVersion}`
     );
     return exists.status === 200;
   } catch (e) {
@@ -116,7 +116,8 @@ async function downloadReleaseZip(plugin, version, folder) {
   const config = globalConfig[plugin];
   const repoUrl = config.repo;
   const releaseZipFileName = config.releaseZipFileName;
-  const zipUrl = `${repoUrl}/releases/download/${version}/${releaseZipFileName}.zip`;
+  const prefixedVersion = getPrefixedVersion(plugin, version);
+  const zipUrl = `${repoUrl}/releases/download/${prefixedVersion}/${releaseZipFileName}.zip`;
   
   // Check for dry run mode at the beginning
   if (DRY_RUN) {
@@ -199,13 +200,13 @@ async function pingSlack(message) {
 
 async function maybeUpdateVersion(plugin, minorVersion, version) {
   const config = globalConfig[plugin];
-  const folder = `${config.folderPrefix}${stripVersionPrefix(minorVersion, getVersionPrefix(plugin))}`;
-  const versionPrefix = getVersionPrefix(plugin);
+  const folder = `${config.folderPrefix}${minorVersion}`;
+  const prefixedVersion = getPrefixedVersion(plugin, version);
 
   try {
     if (config.current[minorVersion]) {
       const oldVersion = config.current[minorVersion];
-      const versionCmp = compareVersions(version, oldVersion, versionPrefix);
+      const versionCmp = compareVersions(version, oldVersion);
       if (versionCmp < 0) {
         console.log(
           `${minorVersion} tried to downgrade to ${version}, but skipped`
@@ -227,7 +228,7 @@ async function maybeUpdateVersion(plugin, minorVersion, version) {
         execCommand(`git add ${folder}`);
         execCommand(`git commit -m "Update ${plugin} ${folder} with tag ${version}"`);
       } else {
-        const command = `git subtree add -P ${folder} --squash ${config.repo} ${version} -m "Update ${plugin} ${folder} subtree with tag ${version}"`;
+        const command = `git subtree add -P ${folder} --squash ${config.repo} ${prefixedVersion} -m "Update ${plugin} ${folder} subtree with tag ${version}"`;
         execCommand(command);
       }
 
@@ -245,7 +246,7 @@ async function maybeUpdateVersion(plugin, minorVersion, version) {
         execCommand(`git add ${folder}`);
         execCommand(`git commit -m "Add ${plugin} ${folder} with tag ${version}"`);
       } else {
-        const command = `git subtree add -P ${folder} --squash ${config.repo} ${version} -m "Add ${plugin} ${folder} subtree with tag ${version}"`;
+        const command = `git subtree add -P ${folder} --squash ${config.repo} ${prefixedVersion} -m "Add ${plugin} ${folder} subtree with tag ${version}"`;
         execCommand(command);
       }
       if (plugin === "jetpack" && version.includes("beta")) {
@@ -325,7 +326,8 @@ async function draftJPPost(version, type) {
  * @returns {Promise<Object>} - The response data from the API
  */
 async function fetchChangelog(version) {
-  const url = `https://raw.githubusercontent.com/Automattic/jetpack-production/${version}/CHANGELOG.md`;
+  const prefixedVersion = getPrefixedVersion("jetpack", version);
+  const url = `https://raw.githubusercontent.com/Automattic/jetpack-production/${prefixedVersion}/CHANGELOG.md`;
 
   const response = await axios.get(url);
   return response.data;
@@ -440,7 +442,8 @@ function createJPReleasePostContent(version, section) {
   content += `<h1>What is being added or changed?</h1>`;
   content += marked.parse(section);
 
-  const releaseNotesLink = `https://github.com/Automattic/jetpack-production/releases/tag/${version}`;
+  const prefixedVersion = getPrefixedVersion("jetpack", version);
+  const releaseNotesLink = `https://github.com/Automattic/jetpack-production/releases/tag/${prefixedVersion}`;
   content += `<p>For more details about this release (including specific changes), please see the <a href="${releaseNotesLink}" target="_blank">release notes</a>.</p>`;
   content += `<h3>Questions?</h3>`;
   content += `If you have any questions, related to this release, please open a <a href="https://wpvip.com/documentation/developing-with-vip/accessing-vip-support/" target="_blank">support ticket</a> and we will be happy to assist.`;
@@ -456,7 +459,8 @@ function createJPReleasePostContent(version, section) {
  * @returns {string} content - The generated content for the Lobby post
  */
 function createJPBetaPostContent(version, section) {
-  const downloadLink = `<a href="https://github.com/Automattic/jetpack-production/releases/tag/${version}">available here</a>`;
+  const prefixedVersion = getPrefixedVersion("jetpack", version);
+  const downloadLink = `<a href="https://github.com/Automattic/jetpack-production/releases/tag/${prefixedVersion}">available here</a>`;
   let content = `<p>Jetpack <strong>${version}</strong> is available now for testing and the download link is ${downloadLink} </p>`;
 
   const officialVersion = version.replace(/-beta\d?/g, "");
@@ -624,7 +628,7 @@ async function maybeDeleteRemovedVersions() {
     if (lowerVersions.length > 0) {
       for (const lowerVersion in lowerVersions) {
         const folder =
-          globalConfig[plugin].folderPrefix + stripVersionPrefix(lowerVersions[lowerVersion], getVersionPrefix(plugin));
+          globalConfig[plugin].folderPrefix + lowerVersions[lowerVersion];
         delete globalConfig[plugin].current[lowerVersions[lowerVersion]];
         updatedSomething =
           (await removePluginVersion(folder)) || updatedSomething;
@@ -633,7 +637,7 @@ async function maybeDeleteRemovedVersions() {
     // If it's on the skip list, remove.
     for (const toRemove in globalConfig[plugin].skip) {
       const folder =
-        globalConfig[plugin].folderPrefix + stripVersionPrefix(globalConfig[plugin].skip[toRemove], getVersionPrefix(plugin));
+        globalConfig[plugin].folderPrefix + globalConfig[plugin].skip[toRemove];
       delete globalConfig[plugin].current[toRemove];
       updatedSomething =
         (await removePluginVersion(folder)) || updatedSomething;
@@ -677,14 +681,14 @@ async function removePluginVersion(folder) {
 async function getLowerVersionsThanLowest(folders, plugin) {
   let lowerVersions = [];
   const folderPrefix = globalConfig[plugin].folderPrefix;
-  const versionPrefix = getVersionPrefix(plugin);
+  const lowestVersion = globalConfig[plugin].lowestVersion;
   for (const folder in folders) {
     if (!folders[folder].startsWith(folderPrefix)) {
       continue;
     }
     const versionNumber = folders[folder].substring(folderPrefix.length);
     if (
-      -1 === compareVersions(versionNumber, globalConfig[plugin].lowestVersion, versionPrefix)
+      -1 === compareVersions(versionNumber, lowestVersion)
     ) {
       lowerVersions.push(versionNumber);
     }
