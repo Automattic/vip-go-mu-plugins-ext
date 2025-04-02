@@ -1,0 +1,1 @@
+<?php return array('dependencies' => array('jetpack-connection', 'lodash', 'react', 'react-dom', 'wp-components', 'wp-element', 'wp-i18n', 'wp-polyfill', 'wp-url'), 'version' => 'ad8c2f59d6b199777ddc');
