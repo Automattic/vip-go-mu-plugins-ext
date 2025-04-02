@@ -580,6 +580,35 @@ async function maybeUpdateVersions() {
 }
 
 /**
+ * Get all folders at directories where plugin folders might be located.
+ */
+function getAllFolders() {
+  const folderPrefixes = Object.values(globalConfig).map(config => config.folderPrefix);
+  // Get all unique directory paths where plugin folders might be located
+  const directories = new Set(['./']);
+  
+  // Check if any folder prefixes contain subdirectories
+  folderPrefixes.forEach(prefix => {
+    const parts = prefix.split('/');
+    if (parts.length > 1) {
+      // Remove the last part which is the actual prefix
+      parts.pop();
+      directories.add('./' + parts.join('/') + '/');
+    }
+  });
+
+  const folders = [];
+
+  for (const directory of directories) {
+    const dirFolders = fs.readdirSync(directory);
+    const dirPrefix = directory.replace('./', '');
+    folders.push(...dirFolders.map(folder => `${dirPrefix}${folder}`));
+  }
+  
+  return folders;
+}
+
+/**
  * Checks folders against config to see if they need to be removed from repo.
  *
  * @returns bool updatedSomething Whether something was deleted or not
@@ -588,7 +617,7 @@ async function maybeDeleteRemovedVersions() {
   console.log("Checking existing folders");
 
   let updatedSomething = false;
-  const folders = fs.readdirSync("./");
+  const folders = getAllFolders();
   for (const plugin in globalConfig) {
     // Remove lower versions than the allowed lowest version.
     let lowerVersions = await getLowerVersionsThanLowest(folders, plugin);
