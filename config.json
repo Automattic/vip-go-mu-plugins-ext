@@ -94,6 +94,9 @@
     "releaseZipFileName": "remote-data-blocks",
     "skip": [],
     "ignore": [],
-    "current": {}
+    "current": {
+      "v0.9": "v0.9.1",
+      "v0.10": "v0.10.0"
+    }
   }
 }
