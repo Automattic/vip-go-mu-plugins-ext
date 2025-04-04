@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/9.5/phpunit.xsd"
+	bootstrap="tests/bootstrap.php"
+	backupGlobals="false"
+	colors="true"
+	convertErrorsToExceptions="true"
+	convertNoticesToExceptions="true"
+	convertWarningsToExceptions="true"
+	convertDeprecationsToExceptions="true"
+	cacheResult="false"
+	>
+	<testsuites>
+		<testsuite name="unit">
+			<directory prefix="test-" suffix=".php">./tests/</directory>
+		</testsuite>
+	</testsuites>
+	<extensions>
+		<extension class="SpeedUp_Isolated_WP_Tests"/>
+	</extensions>
+	<coverage>
+		<include>
+			<directory suffix=".php">.</directory>
+		</include>
+		<exclude>
+			<directory>bin</directory>
+			<directory>mu_plugins</directory>
+			<directory>docs</directory>
+			<directory>modules</directory>
+			<directory>vendor</directory>
+			<directory>vip-config</directory>
+		</exclude>
+	</coverage>
+</phpunit>
