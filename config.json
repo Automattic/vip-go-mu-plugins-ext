@@ -99,7 +99,7 @@
     }
   },
   "vip-security-boost": {
-    "repo": "https://github.com/Automattic/vip-security-boost-integration",
+    "repo": "https://github.com/Automattic/vip-security-boost",
     "folderPrefix": "vip-integrations/vip-security-boost-",
     "versionPrefix": "v",
     "lowestVersion": "0.1",
