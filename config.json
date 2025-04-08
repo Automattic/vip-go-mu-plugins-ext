@@ -94,9 +94,7 @@
     "releaseZipFileName": "remote-data-blocks",
     "skip": [],
     "ignore": [],
-    "current": {
-      "0.11": "0.11.0"
-    }
+    "current": {}
   },
   "vip-security-boost": {
     "repo": "https://github.com/Automattic/vip-security-boost-integration",
