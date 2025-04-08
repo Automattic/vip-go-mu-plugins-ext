@@ -90,14 +90,11 @@
     "repo": "https://github.com/Automattic/remote-data-blocks",
     "folderPrefix": "vip-integrations/remote-data-blocks-",
     "versionPrefix": "v",
-    "lowestVersion": "0.9",
+    "lowestVersion": "0.11",
     "releaseZipFileName": "remote-data-blocks",
     "skip": [],
     "ignore": [],
-    "current": {
-      "0.9": "0.9.1",
-      "0.10": "0.10.0"
-    }
+    "current": {}
   },
   "vip-security-boost": {
     "repo": "https://github.com/Automattic/vip-security-boost-integration",
