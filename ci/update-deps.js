@@ -687,9 +687,7 @@ async function getLowerVersionsThanLowest(folders, plugin) {
       continue;
     }
     const versionNumber = folders[folder].substring(folderPrefix.length);
-    if (
-      -1 === compareVersions(versionNumber, lowestVersion)
-    ) {
+    if ( compareVersions(versionNumber, lowestVersion) < 0 ) {
       lowerVersions.push(versionNumber);
     }
   }
