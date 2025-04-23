@@ -1,0 +1,32 @@
+version: 2
+updates:
+  - package-ecosystem: 'npm'
+    reviewers:
+      - 'Parsely/wp-parsely'
+    directory: '/'
+    schedule:
+      interval: 'daily'
+    open-pull-requests-limit: 50
+    labels:
+      - 'Deps'
+      - 'Deps: JavaScript'
+
+  - package-ecosystem: 'composer'
+    reviewers:
+      - 'Parsely/wp-parsely'
+    directory: '/'
+    schedule:
+      interval: 'daily'
+    labels:
+      - 'Deps'
+      - 'Deps: PHP'
+
+  - package-ecosystem: 'github-actions'
+    reviewers:
+      - 'Parsely/wp-parsely'
+    directory: '/'
+    schedule:
+      interval: 'daily'
+    labels:
+      - 'Deps'
+      - 'Deps: GitHub Actions'
