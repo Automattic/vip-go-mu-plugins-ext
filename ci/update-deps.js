@@ -477,7 +477,7 @@ function createJPBetaPostContent(version, section) {
   content += `<p><i>*This deployment date and time are subject to change if issues are discovered during testing of the Jetpack release.</i></p>
     <p>A full list of changes is available in the <a href="https://github.com/Automattic/jetpack/commits/" target="_blank">commit log</a>.</p>
     <h2>What is being added or changed?</h2>`;
-  content += marked.parse(section);
+  content += marked.parse(section) + '\n';
 
   content += `<h2>What do I need to do?</h2>
     <p>We recommend the below:</p>
