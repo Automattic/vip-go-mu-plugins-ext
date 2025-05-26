@@ -439,7 +439,7 @@ function createJPReleasePostContent(version, section) {
     "https://lobby-vip.files.wordpress.com/2021/05/3-v1_52018_preview-2.png?w=960";
   let content = `<img src="${image}" alt="New Jetpack release">`;
   content += `<p>Jetpack ${version} has been made the default Jetpack version on the VIP Platform.</p>`;
-  content += `<h1>What is being added or changed?</h1>`;
+  content += `<h2>What is being added or changed?</h2>`;
   content += marked.parse(section);
 
   const prefixedVersion = getPrefixedVersion("jetpack", version);
@@ -476,10 +476,10 @@ function createJPBetaPostContent(version, section) {
 
   content += `<p><i>*This deployment date and time are subject to change if issues are discovered during testing of the Jetpack release.</i></p>
     <p>A full list of changes is available in the <a href="https://github.com/Automattic/jetpack/commits/" target="_blank">commit log</a>.</p>
-    <h1>What is being added or changed?</h1>`;
+    <h2>What is being added or changed?</h2>`;
   content += marked.parse(section);
 
-  content += `<h1>What do I need to do?</h1>
+  content += `<h2>What do I need to do?</h2>
     <p>We recommend the below:</p>
     <ol>
     <li>Installing the release on your non-production sites using <a href="https://docs.wpvip.com/how-tos/jetpack/version-updates/#h-pinning-to-a-version" target="_blank">these instructions</a>.</li>
