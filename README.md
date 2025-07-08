@@ -111,3 +111,4 @@ Optional string prefix used in version numbers. For example, if a plugin uses "v
 * 11.9 - Fix Publicize bug + backported https://github.com/Automattic/jetpack/pull/31072
 * 11.3, 11.6, 11.9, 12.0, 12.3 - To prevent undoing of https://github.com/Automattic/vip-go-mu-plugins-ext/commit/82b8a5e608825ba7dd2395f7210e3a010c18e2c8
 * 14.6 - Fix XML sitemap bug https://github.com/Automattic/vip-go-mu-plugins-ext/commit/865b56dabb8ab99d466b68f50ec024e3585c5104
+* 14.8 - Revert using deprecated `wpcom_is_vip()` call https://github.com/Automattic/jetpack/commit/3287aa706df4b5934960ab12553f979f0836ba2d
