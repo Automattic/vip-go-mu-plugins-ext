@@ -479,20 +479,21 @@ function createJPBetaPostContent(version, section) {
     <h2>What is being added or changed?</h2>`;
   content += marked.parse(section) + '\n';
 
-  content += `<h2>What do I need to do?</h2>
-    <p>We recommend the below:</p>
-    <ol>
-    <li>Installing the release on your non-production sites using <a href="https://docs.wpvip.com/how-tos/jetpack/version-updates/#h-pinning-to-a-version" target="_blank">these instructions</a>.</li>
-    <li>Running through the testing flows outlined in the <a href="https://github.com/Automattic/jetpack/blob/trunk/projects/plugins/jetpack/to-test.md" target="_blank">Jetpack Testing Guide</a>.</li>
-    </ol>
+  content += marked.parse(`## What do I need to do?
 
-    <p>As you're testing, there are a few things to keep in mind:</p>
-    <ul>
-    <li>Check your browser's <a href="https://wordpress.org/documentation/article/using-your-browser-to-diagnose-javascript-errors/" target="_blank">JavaScript console</a> and see if there are any errors reported by Jetpack there.</li>
-    <li>Use <a href="https://docs.wpvip.com/how-tos/enable-query-monitor/" target="_blank">Query Monitor</a> to help make PHP notices and warnings more noticeable and report anything you see.</li>
-    </ul>
-    <h2>Questions?</h2>
-    <p>If you have any questions, related to this release, please <a href="https://docs.wpvip.com/technical-references/vip-support/" target="_blank">open a support ticket</a> and we will be happy to assist.</p>`;
+We recommend the below:
+
+1. Installing the release on your non-production sites using [these instructions](https://docs.wpvip.com/how-tos/jetpack/version-updates/#h-pinning-to-a-version).
+2. Running through the testing flows outlined in the [Jetpack Testing Guide](https://github.com/Automattic/jetpack/blob/trunk/projects/plugins/jetpack/to-test.md).
+
+As you're testing, there are a few things to keep in mind:
+
+- Check your browser's [JavaScript console](https://wordpress.org/documentation/article/using-your-browser-to-diagnose-javascript-errors/) and see if there are any errors reported by Jetpack there.
+- Use [Query Monitor](https://docs.wpvip.com/how-tos/enable-query-monitor/) to help make PHP notices and warnings more noticeable and report anything you see.
+
+## Questions?
+
+If you have any questions, related to this release, please [open a support ticket](https://docs.wpvip.com/technical-references/vip-support/) and we will be happy to assist.`);
 
   return content;
 }
