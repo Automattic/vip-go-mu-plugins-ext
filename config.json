@@ -108,7 +108,7 @@
     "repo": "https://github.com/Automattic/vip-security-boost",
     "folderPrefix": "vip-integrations/vip-security-boost-",
     "versionPrefix": "v",
-    "lowestVersion": "0.1",
+    "lowestVersion": "1.0",
     "skip": [],
     "ignore": [],
     "current": {
