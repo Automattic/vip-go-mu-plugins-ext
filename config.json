@@ -116,5 +116,15 @@
     "current": {
       "1.0": "1.0.9"
     }
+  },
+  "vip-real-time-collaboration": {
+    "repo": "https://github.com/Automattic/vip-real-time-collaboration",
+    "folderPrefix": "vip-integrations/vip-real-time-collaboration-",
+    "versionPrefix": "v",
+    "lowestVersion": "0.1",
+    "releaseZipFileName": "vip-real-time-collaboration",
+    "skip": [],
+    "ignore": [],
+    "current": {}
   }
 }
