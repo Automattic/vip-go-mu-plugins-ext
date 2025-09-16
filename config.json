@@ -125,6 +125,8 @@
     "releaseZipFileName": "vip-real-time-collaboration",
     "skip": [],
     "ignore": [],
-    "current": {}
+    "current": {
+      "0.1": "0.1.0"
+    }
   }
 }
