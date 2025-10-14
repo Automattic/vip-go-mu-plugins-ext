@@ -75,7 +75,6 @@ function fetchAllTags(repoUrl, versionPrefix = '') {
                 return match ? match[1] : null;
             })
             .filter(Boolean)
-            .filter(tag => !tag.includes('^{}')) // Filter out peeled refs
             .map(tag => versionPrefix && tag.startsWith(versionPrefix) ? tag.slice(versionPrefix.length) : tag)
             .filter(tag => versionPrefix === '' || !tag.includes('/')) // Only keep version-like tags
             .sort();
