@@ -35,7 +35,7 @@ function getPrefixedVersion(plugin, version) {
 
 function incrementVersion(plugin, version) {
   const [major, minor] = version.split(".").map(Number);
-  const maxMinor = plugin === "jetpack" ? 9 : 20; // Since Jetpack version minors usually don't go over 9, we need to stop looking and jump to the next major.
+  const maxMinor = plugin === "jetpack" ? 9 : 25; // Since Jetpack version minors usually don't go over 9, we need to stop looking and jump to the next major.
   let result = "";
   if (minor === maxMinor) {
     result = `${major + 1}.0`;
