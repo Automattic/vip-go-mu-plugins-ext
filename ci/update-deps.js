@@ -4,7 +4,7 @@ const { default: axios } = require("axios");
 const fs = require("fs");
 const path = require("path");
 const { execSync } = require("child_process");
-const { compareVersions, addVersionPrefix } = require("./utils");
+const { compareVersions, addVersionPrefix, discoverPluginVersions } = require("./utils");
 const marked = require("marked");
 const os = require("os");
 
@@ -33,76 +33,7 @@ function getPrefixedVersion(plugin, version) {
   return addVersionPrefix(version, versionPrefix);
 }
 
-function incrementVersion(plugin, version) {
-  const [major, minor] = version.split(".").map(Number);
-  const maxMinor = plugin === "jetpack" ? 9 : 25; // Since Jetpack version minors usually don't go over 9, we need to stop looking and jump to the next major.
-  let result = "";
-  if (minor === maxMinor) {
-    result = `${major + 1}.0`;
-  } else {
-    result = `${major}.${minor + 1}`;
-  }
-
-  return result;
-}
-
-function incrementPatchVersion(version, versionExists) {
-  const betaMatch = version.match(/beta(\d+)?/);
-  if (betaMatch && versionExists) {
-    const betaNumber = betaMatch && betaMatch[1] ? Number(betaMatch[1]) : 1;
-    return `beta${betaNumber + 1}`;
-  }
-  if (betaMatch) {
-    return "";
-  }
-  if (!version) {
-    return "1";
-  }
-  return Number(version) + 1 + "";
-}
-
-function formatVersion(minor, patch) {
-  if (!patch) {
-    return `${minor}`;
-  }
-  if (patch.startsWith("beta")) {
-    return `${minor}-${patch}`;
-  }
-  return `${minor}.${patch}`;
-}
-
-async function checkVersionExists(plugin, version) {
-  try {
-    const prefixedVersion = getPrefixedVersion(plugin, version);
-    const exists = await axios.get(
-      `${globalConfig[plugin].repo}/tree/${prefixedVersion}`
-    );
-    return exists.status === 200;
-  } catch (e) {
-    return false;
-  }
-}
-
-async function findPatch(plugin, minor) {
-  // TODO: this is dumb, and will likely need to be changed when we add next dependency that doesn't follow the semver pattern
-  let currentPatch = plugin === "jetpack" ? "beta" : "0";
-  let lastPatch = null;
-  let foundLastPatch = false;
-
-  while (!foundLastPatch) {
-    const version = formatVersion(minor, currentPatch);
-
-    const exists = await checkVersionExists(plugin, version);
-    if (exists) {
-      lastPatch = currentPatch;
-    } else if (!currentPatch.startsWith("beta")) {
-      foundLastPatch = true;
-    }
-
-    currentPatch = incrementPatchVersion(currentPatch, exists);
-  }
-  return lastPatch;
-}
+// Legacy functions removed - replaced with git-based version discovery in utils.js
 
 /**
  * Downloads and extracts a plugin release zip file.
@@ -545,39 +476,33 @@ function removeFolder(folderName) {
 async function maybeUpdateVersions() {
   let updatedSomething = false;
 
-  for (const plugin in globalConfig) {
-    console.log(`Updating ${plugin}`);
+  console.log("Discovering available versions for all plugins in parallel...");
+  
+  // Discover versions for all plugins in parallel
+  const pluginNames = Object.keys(globalConfig);
+  const versionDiscoveryPromises = pluginNames.map(async (plugin) => {
+    try {
+      const availableVersions = await discoverPluginVersions(plugin, globalConfig[plugin]);
+      return { plugin, availableVersions };
+    } catch (error) {
+      console.error(`Failed to discover versions for ${plugin}:`, error.message);
+      return { plugin, availableVersions: {} };
+    }
+  });
 
-    const config = globalConfig[plugin];
-    console.log(config);
-
-    let currentMinor = config.lowestVersion;
-    let foundLastMinor = false;
-    while (!foundLastMinor) {
-      if (
-        config.skip.includes(currentMinor) ||
-        config.ignore.includes(currentMinor)
-      ) {
-        console.log("Skipping", currentMinor);
-      } else {
-        console.log("Checking", currentMinor);
-        const patch = await findPatch(plugin, currentMinor);
-        if (patch === null) {
-          console.log("Not found");
-          foundLastMinor = true;
-        } else {
-          const version = formatVersion(currentMinor, patch);
-          console.log("Found:", version);
-
-          const updated = await maybeUpdateVersion(
-            plugin,
-            currentMinor,
-            version
-          );
-          updatedSomething = updated || updatedSomething;
-        }
+  const allVersionsResults = await Promise.all(versionDiscoveryPromises);
+  
+  // Process updates sequentially (git operations must be serial)
+  for (const { plugin, availableVersions } of allVersionsResults) {
+    console.log(`Processing updates for ${plugin}...`);
+    
+    for (const [minorVersion, latestVersion] of Object.entries(availableVersions)) {
+      try {
+        const updated = await maybeUpdateVersion(plugin, minorVersion, latestVersion);
+        updatedSomething = updated || updatedSomething;
+      } catch (error) {
+        console.error(`Failed to update ${plugin} ${minorVersion} to ${latestVersion}:`, error.message);
       }
-      currentMinor = incrementVersion(plugin, currentMinor);
     }
   }
 
@@ -636,10 +561,9 @@ async function maybeDeleteRemovedVersions() {
       }
     }
     // If it's on the skip list, remove.
-    for (const toRemove in globalConfig[plugin].skip) {
-      const folder =
-        globalConfig[plugin].folderPrefix + globalConfig[plugin].skip[toRemove];
-      delete globalConfig[plugin].current[toRemove];
+    for (const skipVersion of globalConfig[plugin].skip) {
+      const folder = globalConfig[plugin].folderPrefix + skipVersion;
+      delete globalConfig[plugin].current[skipVersion];
       updatedSomething =
         (await removePluginVersion(folder)) || updatedSomething;
     }
