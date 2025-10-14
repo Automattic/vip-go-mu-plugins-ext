@@ -120,12 +120,17 @@ async function pingSlack(message) {
   }
 
   if (process.env.SLACK_WEBHOOK) {
-    const payload = {
-      text: message,
-    };
-    await axios.post(process.env.SLACK_WEBHOOK, payload);
+    try {
+      const payload = {
+        text: message,
+      };
+      await axios.post(process.env.SLACK_WEBHOOK, payload);
+      console.log("✅ Slack notification sent");
+    } catch (error) {
+      console.warn("⚠️ Failed to send Slack notification:", error.message);
+    }
   } else {
-    throw new Error("No slack webhook configured");
+    console.log("ℹ️ Slack notification skipped (no webhook configured):", message);
   }
 }
 
@@ -168,7 +173,11 @@ async function maybeUpdateVersion(plugin, minorVersion, version) {
         oldVersion.includes("beta") &&
         !version.includes("beta")
       ) {
-        draftJPPost(version, "release");
+        try {
+          await draftJPPost(version, "release");
+        } catch (error) {
+          console.warn("⚠️ Failed to create Jetpack release post:", error.message);
+        }
       }
     } else {
       // add
@@ -181,7 +190,11 @@ async function maybeUpdateVersion(plugin, minorVersion, version) {
         execCommand(command);
       }
       if (plugin === "jetpack" && version.includes("beta")) {
-        draftJPPost(version, "beta");
+        try {
+          await draftJPPost(version, "beta");
+        } catch (error) {
+          console.warn("⚠️ Failed to create Jetpack beta post:", error.message);
+        }
       }
     }
     await pingSlack(
@@ -330,6 +343,13 @@ async function createJPPost(title, content, type) {
     bearerToken = CHANGELOG_VIP_TOKEN;
     cat = 1171;
     tag = 5905;
+  }
+
+  // Validate that we have the required token
+  if (!bearerToken) {
+    const tokenName = type === "beta" ? "LOBBY_VIP_TOKEN" : "CHANGELOG_VIP_TOKEN";
+    console.warn(`⚠️ Cannot create Jetpack ${type} post: ${tokenName} environment variable not configured`);
+    return false;
   }
 
   const data = {
