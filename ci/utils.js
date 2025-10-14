@@ -121,7 +121,7 @@ function parseVersionString(versionString) {
  * @param {Object} config - Plugin configuration from config.json
  * @returns {Object} Object with minorKey -> latestVersion mapping
  */
-async function discoverPluginVersions(plugin, config) {
+function discoverPluginVersions(plugin, config) {
     console.log(`Discovering versions for ${plugin}...`);
     
     const versionPrefix = config.versionPrefix || '';
