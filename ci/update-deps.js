@@ -10,6 +10,8 @@ const os = require("os");
 
 // Resolve the path to config.json relative to the script's location
 const CONFIG_FILE_PATH = path.resolve(__dirname, "../config.json");
+// Project root is where config.json is located
+const PROJECT_ROOT = path.dirname(CONFIG_FILE_PATH);
 
 const { LOBBY_VIP_TOKEN, CHANGELOG_VIP_TOKEN } = process.env;
 
@@ -109,7 +111,7 @@ function execCommand(command) {
   if (DRY_RUN) {
     console.log(`[DRY RUN] Would execute: ${command}`);
   } else {
-    return execSync(command);
+    return execSync(command, { cwd: PROJECT_ROOT });
   }
 }
 
@@ -136,7 +138,8 @@ async function pingSlack(message) {
 
 async function maybeUpdateVersion(plugin, minorVersion, version) {
   const config = globalConfig[plugin];
-  const folder = `${config.folderPrefix}${minorVersion}`;
+  const folderRelative = `${config.folderPrefix}${minorVersion}`;
+  const folder = path.join(PROJECT_ROOT, folderRelative);
   const prefixedVersion = getPrefixedVersion(plugin, version);
 
   try {
@@ -154,17 +157,17 @@ async function maybeUpdateVersion(plugin, minorVersion, version) {
       }
 
       // update
-      execCommand(`git rm -r ${folder}`);
+      execCommand(`git rm -r ${folderRelative}`);
       execCommand(
-        `git commit -m "Removing ${folder} for subtree replacement to ${version}"`
+        `git commit -m "Removing ${folderRelative} for subtree replacement to ${version}"`
       );
 
       if (config.releaseZipFileName) {
         await downloadReleaseZip(plugin, version, folder);
-        execCommand(`git add ${folder}`);
-        execCommand(`git commit -m "Update ${plugin} ${folder} with tag ${version}"`);
+        execCommand(`git add ${folderRelative}`);
+        execCommand(`git commit -m "Update ${plugin} ${folderRelative} with tag ${version}"`);
       } else {
-        const command = `git subtree add -P ${folder} --squash ${config.repo} ${prefixedVersion} -m "Update ${plugin} ${folder} subtree with tag ${version}"`;
+        const command = `git subtree add -P ${folderRelative} --squash ${config.repo} ${prefixedVersion} -m "Update ${plugin} ${folderRelative} subtree with tag ${version}"`;
         execCommand(command);
       }
 
@@ -183,10 +186,10 @@ async function maybeUpdateVersion(plugin, minorVersion, version) {
       // add
       if (config.releaseZipFileName) {
         await downloadReleaseZip(plugin, version, folder);
-        execCommand(`git add ${folder}`);
-        execCommand(`git commit -m "Add ${plugin} ${folder} with tag ${version}"`);
+        execCommand(`git add ${folderRelative}`);
+        execCommand(`git commit -m "Add ${plugin} ${folderRelative} with tag ${version}"`);
       } else {
-        const command = `git subtree add -P ${folder} --squash ${config.repo} ${prefixedVersion} -m "Add ${plugin} ${folder} subtree with tag ${version}"`;
+        const command = `git subtree add -P ${folderRelative} --squash ${config.repo} ${prefixedVersion} -m "Add ${plugin} ${folderRelative} subtree with tag ${version}"`;
         execCommand(command);
       }
       if (plugin === "jetpack" && version.includes("beta")) {
@@ -198,7 +201,7 @@ async function maybeUpdateVersion(plugin, minorVersion, version) {
       }
     }
     await pingSlack(
-      `Updated ${folder} to ${version}\nhttps://github.com/Automattic/vip-go-mu-plugins-ext/commits/trunk`
+      `Updated ${folderRelative} to ${version}\nhttps://github.com/Automattic/vip-go-mu-plugins-ext/commits/trunk`
     );
     globalConfig[plugin].current[minorVersion] = version;
     return true;
@@ -478,23 +481,74 @@ function maybeConfigGit() {
   }
 }
 
-function removeFolder(folderName) {
+function removeFolder(folderPath, folderRelative) {
+  // Use folderRelative for display, folderPath for filesystem operations
+  const displayName = folderRelative || folderPath;
+  
   if (DRY_RUN) {
-    console.log(`[DRY RUN] Would remove ${folderName}`);
+    console.log(`[DRY RUN] Would remove ${displayName}`);
     return;
   }
 
   try {
-    fs.rmSync(folderName, { recursive: true });
-    execCommand(`git add ${folderName}`);
-    execCommand(`git commit -m "Removing ${folderName}"`);
+    fs.rmSync(folderPath, { recursive: true });
+    execCommand(`git add ${displayName}`);
+    execCommand(`git commit -m "Removing ${displayName}"`);
   } catch (err) {
     console.error(err);
   }
 }
 
+/**
+ * Cleans up obsolete entries from the config's current property
+ * Removes versions that are:
+ * - Lower than lowestVersion
+ * - In the skip list
+ * @returns {boolean} Whether any cleanup was performed
+ */
+function cleanupObsoleteConfigEntries() {
+  console.log("Cleaning up obsolete config entries...");
+  let cleanedSomething = false;
+  
+  for (const plugin in globalConfig) {
+    const config = globalConfig[plugin];
+    const { current, lowestVersion, skip } = config;
+    
+    // Create list of versions to remove
+    const versionsToRemove = [];
+    
+    for (const [minorVersion, fullVersion] of Object.entries(current)) {
+      // Remove if lower than lowestVersion
+      if (compareVersions(minorVersion, lowestVersion) < 0) {
+        console.log(`  ${plugin}: Removing ${minorVersion} (${fullVersion}) - below lowestVersion ${lowestVersion}`);
+        versionsToRemove.push(minorVersion);
+      }
+      // Remove if in skip list
+      else if (skip.includes(minorVersion)) {
+        console.log(`  ${plugin}: Removing ${minorVersion} (${fullVersion}) - in skip list`);
+        versionsToRemove.push(minorVersion);
+      }
+    }
+    
+    // Remove the obsolete versions
+    for (const version of versionsToRemove) {
+      delete config.current[version];
+      cleanedSomething = true;
+    }
+    
+    if (versionsToRemove.length > 0) {
+      console.log(`  ${plugin}: Cleaned up ${versionsToRemove.length} obsolete entries`);
+    }
+  }
+  
+  return cleanedSomething;
+}
+
 async function maybeUpdateVersions() {
   let updatedSomething = false;
+
+  // Clean up obsolete config entries first
+  updatedSomething = cleanupObsoleteConfigEntries() || updatedSomething;
 
   console.log("Discovering available versions for all plugins in parallel...");
   
@@ -535,7 +589,7 @@ async function maybeUpdateVersions() {
 function getAllFolders() {
   const folderPrefixes = Object.values(globalConfig).map(config => config.folderPrefix);
   // Get all unique directory paths where plugin folders might be located
-  const directories = new Set(['./']);
+  const directories = new Set([PROJECT_ROOT]);
   
   // Check if any folder prefixes contain subdirectories
   folderPrefixes.forEach(prefix => {
@@ -543,16 +597,26 @@ function getAllFolders() {
     if (parts.length > 1) {
       // Remove the last part which is the actual prefix
       parts.pop();
-      directories.add('./' + parts.join('/') + '/');
+      const subDir = path.join(PROJECT_ROOT, parts.join('/'));
+      directories.add(subDir);
     }
   });
 
   const folders = [];
 
   for (const directory of directories) {
-    const dirFolders = fs.readdirSync(directory);
-    const dirPrefix = directory.replace('./', '');
-    folders.push(...dirFolders.map(folder => `${dirPrefix}${folder}`));
+    try {
+      if (fs.existsSync(directory)) {
+        const dirFolders = fs.readdirSync(directory);
+        const relativePath = path.relative(PROJECT_ROOT, directory);
+        const dirPrefix = relativePath ? relativePath + '/' : '';
+        folders.push(...dirFolders.map(folder => `${dirPrefix}${folder}`));
+      } else {
+        console.log(`Directory ${directory} does not exist, skipping`);
+      }
+    } catch (error) {
+      console.warn(`Failed to read directory ${directory}:`, error.message);
+    }
   }
   
   return folders;
@@ -573,19 +637,20 @@ async function maybeDeleteRemovedVersions() {
     let lowerVersions = await getLowerVersionsThanLowest(folders, plugin);
     if (lowerVersions.length > 0) {
       for (const lowerVersion in lowerVersions) {
-        const folder =
-          globalConfig[plugin].folderPrefix + lowerVersions[lowerVersion];
+        const folderRelative = globalConfig[plugin].folderPrefix + lowerVersions[lowerVersion];
+        const folder = path.join(PROJECT_ROOT, folderRelative);
         delete globalConfig[plugin].current[lowerVersions[lowerVersion]];
         updatedSomething =
-          (await removePluginVersion(folder)) || updatedSomething;
+          (await removePluginVersion(folder, folderRelative)) || updatedSomething;
       }
     }
     // If it's on the skip list, remove.
     for (const skipVersion of globalConfig[plugin].skip) {
-      const folder = globalConfig[plugin].folderPrefix + skipVersion;
+      const folderRelative = globalConfig[plugin].folderPrefix + skipVersion;
+      const folder = path.join(PROJECT_ROOT, folderRelative);
       delete globalConfig[plugin].current[skipVersion];
       updatedSomething =
-        (await removePluginVersion(folder)) || updatedSomething;
+        (await removePluginVersion(folder, folderRelative)) || updatedSomething;
     }
   }
 
@@ -595,18 +660,19 @@ async function maybeDeleteRemovedVersions() {
 /**
  * Removes plugin folder and pings slack.
  *
- * @param string folder Plugin folder to remove
- * @returns bool Whether plugin folder was removed or not
+ * @param {string} folder Plugin folder absolute path for filesystem operations
+ * @param {string} folderRelative Plugin folder relative path for git operations
+ * @returns {boolean} Whether plugin folder was removed or not
  */
-async function removePluginVersion(folder) {
+async function removePluginVersion(folder, folderRelative) {
   if (!fs.existsSync(folder)) {
     return false;
   }
 
-  removeFolder(folder);
+  removeFolder(folder, folderRelative);
   try {
     await pingSlack(
-      `Removed ${folder}\nhttps://github.com/Automattic/vip-go-mu-plugins-ext/commits/trunk`
+      `Removed ${folderRelative}\nhttps://github.com/Automattic/vip-go-mu-plugins-ext/commits/trunk`
     );
   } catch (err) {
     console.error(err);
