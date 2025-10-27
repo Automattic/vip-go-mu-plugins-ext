@@ -3831,6 +3831,7 @@ var wp;
     Delta: () => Delta_default,
     LOCAL_EDITOR_ORIGIN: () => LOCAL_EDITOR_ORIGIN,
     LOCAL_SYNC_MANAGER_ORIGIN: () => LOCAL_SYNC_MANAGER_ORIGIN,
+    WORDPRESS_META_KEY_FOR_CRDT_DOC_PERSISTENCE: () => WORDPRESS_META_KEY_FOR_CRDT_DOC_PERSISTENCE,
     Y: () => yjs_exports,
     createSyncManager: () => createSyncManager
   });
@@ -13421,7 +13422,7 @@ var wp;
       const { document: document2 } = JSON.parse(serializedCrdtDoc);
       const docMetaMap = /* @__PURE__ */ new Map();
       docMetaMap.set(CRDT_DOC_META_PERSISTENCE_KEY, true);
-      const ydoc = new Doc({ meta: docMetaMap });
+      const ydoc = createYjsDoc({ meta: docMetaMap });
       const yupdate = fromBase64(document2);
       applyUpdateV2(ydoc, yupdate);
       ydoc.clientID = Math.floor(Math.random() * 1e9);
@@ -15452,8 +15453,8 @@ var wp;
         })
       );
       recordMap.observeDeep(onRecordUpdate);
-      const isValid = applyPersistedCrdtDoc(objectType, objectId, record);
-      if (!isValid) {
+      const isInvalid = applyPersistedCrdtDoc(syncConfig, ydoc, record);
+      if (isInvalid) {
         ydoc.transact(() => {
           syncConfig.applyChangesToCRDTDoc(ydoc, record);
         }, LOCAL_SYNC_MANAGER_ORIGIN);
@@ -15468,26 +15469,21 @@ var wp;
     function getEntityId(objectType, objectId) {
       return `${objectType}_${objectId}`;
     }
-    function applyPersistedCrdtDoc(objectType, objectId, record) {
-      const entityId = getEntityId(objectType, objectId);
-      const entityState = entityStates.get(entityId);
-      if (!entityState) {
-        return false;
+    function applyPersistedCrdtDoc(syncConfig, targetDoc, record) {
+      if (!syncConfig.supports?.crdtPersistence) {
+        return true;
       }
-      const { syncConfig, ydoc } = entityState;
       const tempDoc = getPersistedCrdtDoc(record);
-      if (tempDoc) {
-        const update = encodeStateAsUpdateV2(tempDoc);
-        tempDoc.destroy();
-        ydoc.transact(() => {
-          applyUpdateV2(ydoc, update);
-        }, LOCAL_SYNC_MANAGER_ORIGIN);
-        const changes = syncConfig.getChangesFromCRDTDoc(tempDoc, record);
-        if (Object.keys(changes).length > 0) {
-          return false;
-        }
+      if (!tempDoc) {
+        return true;
       }
-      return true;
+      const update = encodeStateAsUpdateV2(tempDoc);
+      targetDoc.transact(() => {
+        applyUpdateV2(targetDoc, update);
+      }, LOCAL_SYNC_MANAGER_ORIGIN);
+      const changes = syncConfig.getChangesFromCRDTDoc(tempDoc, record);
+      tempDoc.destroy();
+      return Object.keys(changes).length > 0;
     }
     function updateCRDTDoc(objectType, objectId, changes, origin) {
       const entityId = getEntityId(objectType, objectId);
@@ -15511,6 +15507,9 @@ var wp;
         ydoc,
         await handlers.getEditedRecord()
       );
+      if (0 === Object.keys(changes).length) {
+        return;
+      }
       handlers.editRecord(changes);
     }
     function createEntityMeta(objectType, objectId) {

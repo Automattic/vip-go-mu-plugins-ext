@@ -348,6 +348,9 @@ var wp;
       [delayedSearch]
     );
     const commands = (0, import_element2.useMemo)(() => {
+      if (window.location.pathname.startsWith("/wp-admin/network/")) {
+        return [];
+      }
       return (records ?? []).map((record) => {
         const command = {
           name: postType + "-" + record.id,
@@ -427,6 +430,9 @@ var wp;
       return orderEntityRecordsBySearch(records, search).slice(0, 10);
     }, [records, search]);
     const commands = (0, import_element2.useMemo)(() => {
+      if (window.location.pathname.startsWith("/wp-admin/network/")) {
+        return [];
+      }
       if (!canCreateTemplate || !isBlockBasedTheme && !templateType === "wp_template_part") {
         return [];
       }
@@ -510,6 +516,9 @@ var wp;
       };
     }, []);
     const commands = (0, import_element2.useMemo)(() => {
+      if (window.location.pathname.startsWith("/wp-admin/network/")) {
+        return [];
+      }
       const result = [];
       if (canCreateTemplate && isBlockBasedTheme) {
         result.push({
@@ -618,6 +627,9 @@ var wp;
       };
     }, []);
     const commands = (0, import_element2.useMemo)(() => {
+      if (window.location.pathname.includes("/wp-admin/network/")) {
+        return [];
+      }
       if (!canEditCSS) {
         return [];
       }

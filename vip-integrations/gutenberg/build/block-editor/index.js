@@ -31643,7 +31643,7 @@ var wp;
             isDropZoneDisabled: isZoomOut2() && sectionRootClientId !== ""
           };
         }
-        const { hasBlockSupport: hasBlockSupport43, getBlockType: getBlockType21 } = select2(import_blocks39.store);
+        const { hasBlockSupport: hasBlockSupport44, getBlockType: getBlockType21 } = select2(import_blocks39.store);
         const blockName = getBlockName2(clientId);
         const blockEditingMode = getBlockEditingMode2(clientId);
         const parentClientId2 = getBlockRootClientId2(clientId);
@@ -31654,7 +31654,7 @@ var wp;
           _isDropZoneDisabled = clientId !== sectionRootClientId;
         }
         return {
-          __experimentalCaptureToolbars: hasBlockSupport43(
+          __experimentalCaptureToolbars: hasBlockSupport44(
             blockName,
             "__experimentalExposeControlsToChildren",
             false
@@ -42170,6 +42170,22 @@ var wp;
     const disableCustomFontSizes = !settings2?.typography?.customFontSize;
     const mergedFontSizes = getMergedFontSizes(settings2);
     const fontSize = decodeValue(inheritedValue?.typography?.fontSize);
+    const currentFontSizeSlug = (() => {
+      const rawValue = inheritedValue?.typography?.fontSize;
+      if (!rawValue || typeof rawValue !== "string") {
+        return void 0;
+      }
+      if (rawValue.startsWith("var:preset|font-size|")) {
+        return rawValue.replace("var:preset|font-size|", "");
+      }
+      const cssVarMatch = rawValue.match(
+        /^var\(--wp--preset--font-size--([^)]+)\)$/
+      );
+      if (cssVarMatch) {
+        return cssVarMatch[1];
+      }
+      return void 0;
+    })();
     const setFontSize = (newValue, metadata) => {
       const actualValue = !!metadata?.slug ? `var:preset|font-size|${metadata?.slug}` : newValue;
       onChange(
@@ -42369,7 +42385,8 @@ var wp;
               children: /* @__PURE__ */ (0, import_jsx_runtime258.jsx)(
                 import_components126.FontSizePicker,
                 {
-                  value: fontSize,
+                  value: currentFontSizeSlug || fontSize,
+                  valueMode: currentFontSizeSlug ? "slug" : "literal",
                   onChange: setFontSize,
                   fontSizes: mergedFontSizes,
                   disableCustomFontSizes,
@@ -59647,7 +59664,7 @@ var wp;
   );
   (0, import_hooks21.addFilter)(
     "blocks.switchToBlockType.transformedBlock",
-    "core/color/addTransforms",
+    "core/customClassName/addTransforms",
     addTransforms
   );
 
@@ -62972,6 +62989,7 @@ var wp;
 
   // packages/block-editor/build-module/hooks/metadata.js
   var import_hooks31 = __toESM(require_hooks());
+  var import_blocks111 = __toESM(require_blocks());
   var META_ATTRIBUTE_NAME = "metadata";
   function addMetaAttribute(blockTypeSettings) {
     if (blockTypeSettings?.attributes?.[META_ATTRIBUTE_NAME]?.type) {
@@ -62985,10 +63003,53 @@ var wp;
     };
     return blockTypeSettings;
   }
+  function addTransforms4(result, source, index, results) {
+    if (results.length === 1 && result.innerBlocks.length === source.length) {
+      return result;
+    }
+    if (results.length === 1 && source.length > 1 || results.length > 1 && source.length === 1) {
+      return result;
+    }
+    if (results.length > 1 && source.length > 1 && results.length !== source.length) {
+      return result;
+    }
+    const sourceMetadata = source[index]?.attributes?.metadata;
+    if (!sourceMetadata) {
+      return result;
+    }
+    const preservedMetadata = {};
+    if (sourceMetadata.noteId && !result.attributes?.metadata?.noteId) {
+      preservedMetadata.noteId = sourceMetadata.noteId;
+    }
+    if (sourceMetadata.name && !result.attributes?.metadata?.name && (0, import_blocks111.hasBlockSupport)(result.name, "renaming", true)) {
+      preservedMetadata.name = sourceMetadata.name;
+    }
+    if (sourceMetadata.blockVisibility !== void 0 && !result.attributes?.metadata?.blockVisibility && (0, import_blocks111.hasBlockSupport)(result.name, "blockVisibility", true)) {
+      preservedMetadata.blockVisibility = sourceMetadata.blockVisibility;
+    }
+    if (Object.keys(preservedMetadata).length > 0) {
+      return {
+        ...result,
+        attributes: {
+          ...result.attributes,
+          metadata: {
+            ...result.attributes.metadata,
+            ...preservedMetadata
+          }
+        }
+      };
+    }
+    return result;
+  }
   (0, import_hooks31.addFilter)(
     "blocks.registerBlockType",
     "core/metadata/addMetaAttribute",
     addMetaAttribute
+  );
+  (0, import_hooks31.addFilter)(
+    "blocks.switchToBlockType.transformedBlock",
+    "core/metadata/addTransforms",
+    addTransforms4
   );
 
   // packages/block-editor/build-module/hooks/block-hooks.js
@@ -62996,7 +63057,7 @@ var wp;
   var import_i18n207 = __toESM(require_i18n());
   var import_element229 = __toESM(require_element());
   var import_components230 = __toESM(require_components());
-  var import_blocks111 = __toESM(require_blocks());
+  var import_blocks112 = __toESM(require_blocks());
   var import_data180 = __toESM(require_data());
   var EMPTY_OBJECT3 = {};
   function BlockHooksControlPure({
@@ -63005,7 +63066,7 @@ var wp;
     metadata: { ignoredHookedBlocks = [] } = {}
   }) {
     const blockTypes = (0, import_data180.useSelect)(
-      (select2) => select2(import_blocks111.store).getBlockTypes(),
+      (select2) => select2(import_blocks112.store).getBlockTypes(),
       []
     );
     const hookedBlocksForCurrentBlock = (0, import_element229.useMemo)(
@@ -63139,7 +63200,7 @@ var wp;
                       if (!checked) {
                         const relativePosition = block.blockHooks[name];
                         insertBlockIntoDesignatedLocation(
-                          (0, import_blocks111.createBlock)(block.name),
+                          (0, import_blocks112.createBlock)(block.name),
                           relativePosition
                         );
                         return;
@@ -63171,7 +63232,7 @@ var wp;
   var import_jsx_runtime396 = __toESM(require_jsx_runtime());
   var import_es66 = __toESM(require_es6());
   var import_i18n208 = __toESM(require_i18n());
-  var import_blocks112 = __toESM(require_blocks());
+  var import_blocks113 = __toESM(require_blocks());
   var import_components232 = __toESM(require_components());
   var import_data181 = __toESM(require_data());
   var import_element230 = __toESM(require_element());
@@ -63179,7 +63240,7 @@ var wp;
   var { Menu } = unlock(import_components232.privateApis);
   var EMPTY_OBJECT4 = {};
   var getAttributeType = (blockName, attribute) => {
-    const _attributeType = (0, import_blocks112.getBlockType)(blockName).attributes?.[attribute]?.type;
+    const _attributeType = (0, import_blocks113.getBlockType)(blockName).attributes?.[attribute]?.type;
     return _attributeType === "rich-text" ? "string" : _attributeType;
   };
   var useToolsPanelDropdownMenuProps2 = () => {
@@ -63412,7 +63473,7 @@ var wp;
         if (!_bindableAttributes || _bindableAttributes.length === 0) {
           return EMPTY_OBJECT4;
         }
-        const registeredSources = (0, import_blocks112.getBlockBindingsSources)();
+        const registeredSources = (0, import_blocks113.getBlockBindingsSources)();
         Object.entries(registeredSources).forEach(
           ([
             sourceName,
@@ -63536,13 +63597,20 @@ var wp;
           ]
         }
       ),
-      RenderModalContent && /* @__PURE__ */ (0, import_jsx_runtime396.jsx)(import_components232.Modal, { onRequestClose: handleCloseModal, children: /* @__PURE__ */ (0, import_jsx_runtime396.jsx)(
-        RenderModalContent,
+      RenderModalContent && /* @__PURE__ */ (0, import_jsx_runtime396.jsx)(
+        import_components232.Modal,
         {
-          attribute: modalState.attribute,
-          closeModal: handleCloseModal
+          onRequestClose: handleCloseModal,
+          title: sources[modalState.sourceKey]?.label,
+          children: /* @__PURE__ */ (0, import_jsx_runtime396.jsx)(
+            RenderModalContent,
+            {
+              attribute: modalState.attribute,
+              closeModal: handleCloseModal
+            }
+          )
         }
-      ) })
+      )
     ] });
   };
   var block_bindings_default = {
@@ -63555,12 +63623,12 @@ var wp;
 
   // packages/block-editor/build-module/hooks/block-renaming.js
   var import_hooks32 = __toESM(require_hooks());
-  var import_blocks113 = __toESM(require_blocks());
+  var import_blocks114 = __toESM(require_blocks());
   function addLabelCallback(settings2) {
     if (settings2.__experimentalLabel) {
       return settings2;
     }
-    const supportsBlockNaming = (0, import_blocks113.hasBlockSupport)(
+    const supportsBlockNaming = (0, import_blocks114.hasBlockSupport)(
       settings2,
       "renaming",
       true
@@ -63860,7 +63928,7 @@ var wp;
   // packages/block-editor/build-module/components/rich-text/get-rich-text-values.js
   var import_jsx_runtime398 = __toESM(require_jsx_runtime());
   var import_element233 = __toESM(require_element());
-  var import_blocks114 = __toESM(require_blocks());
+  var import_blocks115 = __toESM(require_blocks());
   var import_rich_text18 = __toESM(require_rich_text());
   function addValuesForElement(element, values, innerBlocks) {
     if (null === element || void 0 === element || false === element) {
@@ -63911,7 +63979,7 @@ var wp;
   function addValuesForBlocks(values, blocks2) {
     for (let i2 = 0; i2 < blocks2.length; i2++) {
       const { name, attributes, innerBlocks } = blocks2[i2];
-      const saveElement = (0, import_blocks114.getSaveElement)(
+      const saveElement = (0, import_blocks115.getSaveElement)(
         name,
         attributes,
         // Instead of letting save elements use `useInnerBlocksProps.save`,
@@ -63923,10 +63991,10 @@ var wp;
     }
   }
   function getRichTextValues(blocks2 = []) {
-    import_blocks114.__unstableGetBlockProps.skipFilters = true;
+    import_blocks115.__unstableGetBlockProps.skipFilters = true;
     const values = [];
     addValuesForBlocks(values, blocks2);
-    import_blocks114.__unstableGetBlockProps.skipFilters = false;
+    import_blocks115.__unstableGetBlockProps.skipFilters = false;
     return values.map(
       (value) => value instanceof import_rich_text18.RichTextData ? value : import_rich_text18.RichTextData.fromHTMLString(value)
     );

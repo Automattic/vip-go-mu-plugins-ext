@@ -949,15 +949,17 @@ var wp;
       });
     };
     return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
-      isSingleSelected && !isContentOnlyMode && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_block_editor2.BlockControls, { children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_components.ToolbarGroup, { children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-        import_block_editor2.HeadingLevelDropdown,
-        {
-          value: headingLevel,
-          options: levelOptions,
-          onChange: updateHeadingLevel
-        }
-      ) }) }),
-      isSingleSelected && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_block_editor2.BlockControls, { group: "other", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_components.ToolbarButton, { onClick: addAccordionItemBlock, children: (0, import_i18n.__)("Add") }) }),
+      isSingleSelected && !isContentOnlyMode && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_block_editor2.BlockControls, { children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_components.ToolbarGroup, { children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+          import_block_editor2.HeadingLevelDropdown,
+          {
+            value: headingLevel,
+            options: levelOptions,
+            onChange: updateHeadingLevel
+          }
+        ) }) }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_block_editor2.BlockControls, { group: "other", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_components.ToolbarButton, { onClick: addAccordionItemBlock, children: (0, import_i18n.__)("Add") }) })
+      ] }),
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_block_editor2.InspectorControls, { children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
         import_components.__experimentalToolsPanel,
         {
@@ -1086,7 +1088,7 @@ var wp;
     name: "core/accordion",
     title: "Accordion",
     category: "design",
-    description: "Displays a group of accordion headings and associated expandable content.",
+    description: "Displays a foldable layout that groups content in collapsible sections.",
     example: {},
     supports: {
       anchor: true,
@@ -1420,7 +1422,7 @@ var wp;
     name: "core/accordion-item",
     title: "Accordion Item",
     category: "design",
-    description: "Displays a section of content in an accordion, including a heading and expandable content.",
+    description: "Wraps the heading and panel in one unit.",
     parent: ["core/accordion"],
     allowedBlocks: ["core/accordion-heading", "core/accordion-panel"],
     supports: {
@@ -1661,7 +1663,7 @@ var wp;
     name: "core/accordion-heading",
     title: "Accordion Heading",
     category: "design",
-    description: "Displays an accordion heading.",
+    description: "Toggles the accordion panel.",
     parent: ["core/accordion-item"],
     usesContext: [
       "core/accordion-icon-position",
@@ -1934,7 +1936,7 @@ var wp;
     name: "core/accordion-panel",
     title: "Accordion Panel",
     category: "design",
-    description: "Displays an accordion panel.",
+    description: "Contains the hidden or revealed content beneath the heading.",
     parent: ["core/accordion-item"],
     supports: {
       html: false,
@@ -6749,19 +6751,10 @@ var wp;
     if ((0, import_blocks7.hasBlockSupport)(newBlockType, "ariaLabel") && attributes3.ariaLabel) {
       transformedAttributes.ariaLabel = attributes3.ariaLabel;
     }
-    if ((0, import_blocks7.hasBlockSupport)(newBlockType, "className") && attributes3.className) {
-      transformedAttributes.className = attributes3.className;
-    }
     if (attributes3.metadata) {
-      const transformedMetadata = ["noteId"];
+      const transformedMetadata = [];
       if (bindingsCallback) {
         transformedMetadata.push("id", "bindings");
-      }
-      if ((0, import_blocks7.hasBlockSupport)(newBlockType, "renaming", true)) {
-        transformedMetadata.push("name");
-      }
-      if ((0, import_blocks7.hasBlockSupport)(newBlockType, "blockVisibility", true)) {
-        transformedMetadata.push("blockVisibility");
       }
       if (transformedMetadata.length > 0) {
         const newMetadata = Object.entries(attributes3.metadata).reduce(
@@ -6824,6 +6817,7 @@ var wp;
               const link = element.querySelector("a");
               const url = link?.getAttribute("href");
               return (0, import_blocks8.createBlock)("core/button", {
+                ...attributes3,
                 ...getTransformedAttributes(
                   attributes3,
                   "core/button",
@@ -8179,6 +8173,7 @@ var wp;
         transform: (attributes3) => {
           const { content } = attributes3;
           return (0, import_blocks13.createBlock)("core/code", {
+            ...attributes3,
             ...getTransformedAttributes(attributes3, "core/code"),
             content
           });
@@ -8190,6 +8185,7 @@ var wp;
         transform: (attributes3) => {
           const { content: text } = attributes3;
           return (0, import_blocks13.createBlock)("core/code", {
+            ...attributes3,
             ...getTransformedAttributes(attributes3, "core/code"),
             // The HTML is plain text (with plain line breaks), so
             // convert it to rich text.
@@ -29295,6 +29291,7 @@ ${url}
                 label: (0, import_i18n93.__)("LaTeX math syntax"),
                 hideLabelFromVision: true,
                 value: latex,
+                className: "wp-block-math__textarea-control",
                 onChange: (newLatex) => {
                   if (!latexToMathML) {
                     setAttributes({ latex: newLatex });

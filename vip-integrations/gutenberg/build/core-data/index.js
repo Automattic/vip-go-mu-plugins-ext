@@ -364,13 +364,6 @@ var wp;
     }
   });
 
-  // wordpress-external:@wordpress/hooks
-  var require_hooks = __commonJS({
-    "wordpress-external:@wordpress/hooks"(exports, module) {
-      module.exports = window.wp.hooks;
-    }
-  });
-
   // wordpress-external:@wordpress/deprecated
   var require_deprecated = __commonJS({
     "wordpress-external:@wordpress/deprecated"(exports, module) {
@@ -1078,12 +1071,13 @@ var wp;
                   block.name,
                   attributeName
                 );
-                if (isRichText && "string" === typeof attributeValue && currentAttributes.has(attributeName)) {
-                  const blockYText = currentAttributes.get(
-                    attributeName
-                  );
+                if (isRichText && "string" === typeof attributeValue && currentAttributes.has(attributeName) && currentAttributes.get(
+                  attributeName
+                ) instanceof import_sync2.Y.Text) {
                   mergeRichTextUpdate(
-                    blockYText,
+                    currentAttributes.get(
+                      attributeName
+                    ),
                     attributeValue,
                     cursorPosition
                   );
@@ -1146,10 +1140,15 @@ var wp;
     }
   }
   function shouldBlockBeSynced(block) {
-    if ("core/gallery" === block.name) {
-      return !block.innerBlocks.some(
-        (innerBlock) => innerBlock.attributes && innerBlock.attributes.blob
-      );
+    switch (block.name) {
+      case "core/freeform": {
+        return "string" === typeof block.attributes.content;
+      }
+      case "core/gallery": {
+        return !block.innerBlocks.some(
+          (innerBlock) => innerBlock.attributes && innerBlock.attributes.blob
+        );
+      }
     }
     return true;
   }
@@ -1191,30 +1190,6 @@ var wp;
     blockYText.applyDelta(deltaDiff.ops);
   }
 
-  // packages/core-data/build-module/utils/crdt-meta.js
-  var import_hooks = __toESM(require_hooks());
-  var metaDecisionCache = /* @__PURE__ */ new Map();
-  function shouldSyncMetaForPostType(metaKey, postType) {
-    if (!metaDecisionCache.has(postType.slug)) {
-      metaDecisionCache.set(postType.slug, /* @__PURE__ */ new Map());
-    }
-    const decisionMap = metaDecisionCache.get(postType.slug);
-    if (decisionMap.has(metaKey)) {
-      return decisionMap.get(metaKey);
-    }
-    const shouldSync = Boolean(
-      (0, import_hooks.applyFilters)(
-        "sync.shouldSyncMeta",
-        !metaKey.startsWith("_"),
-        metaKey,
-        postType.slug,
-        postType
-      )
-    );
-    decisionMap.set(metaKey, shouldSync);
-    return shouldSync;
-  }
-
   // packages/core-data/build-module/utils/crdt.js
   var allowedPostProperties = /* @__PURE__ */ new Set([
     "author",
@@ -1232,6 +1207,9 @@ var wp;
     "tags",
     "template",
     "title"
+  ]);
+  var disallowedPostMetaKeys = /* @__PURE__ */ new Set([
+    import_sync.WORDPRESS_META_KEY_FOR_CRDT_DOC_PERSISTENCE
   ]);
   function defaultApplyChangesToCRDTDoc(ydoc, changes) {
     const ymap = ydoc.getMap(import_sync.CRDT_RECORD_MAP_KEY);
@@ -1251,7 +1229,7 @@ var wp;
       }
     });
   }
-  function applyPostChangesToCRDTDoc(ydoc, changes, postType) {
+  function applyPostChangesToCRDTDoc(ydoc, changes, _postType) {
     const ymap = ydoc.getMap(import_sync.CRDT_RECORD_MAP_KEY);
     Object.entries(changes).forEach(([key, newValue]) => {
       if (!allowedPostProperties.has(key)) {
@@ -1290,7 +1268,7 @@ var wp;
           }
           Object.entries(newValue ?? {}).forEach(
             ([metaKey, metaValue]) => {
-              if (!shouldSyncMetaForPostType(metaKey, postType)) {
+              if (disallowedPostMetaKeys.has(metaKey)) {
                 return;
               }
               mergeValue(
@@ -1334,7 +1312,7 @@ var wp;
   function defaultGetChangesFromCRDTDoc(crdtDoc) {
     return crdtDoc.getMap(import_sync.CRDT_RECORD_MAP_KEY).toJSON();
   }
-  function getPostChangesFromCRDTDoc(ydoc, editedRecord, postType) {
+  function getPostChangesFromCRDTDoc(ydoc, editedRecord, _postType) {
     const ymap = ydoc.getMap(import_sync.CRDT_RECORD_MAP_KEY);
     let allowedMetaChanges = {};
     const changes = Object.fromEntries(
@@ -1365,7 +1343,7 @@ var wp;
           case "meta": {
             allowedMetaChanges = Object.fromEntries(
               Object.entries(newValue ?? {}).filter(
-                ([metaKey]) => shouldSyncMetaForPostType(metaKey, postType)
+                ([metaKey]) => !disallowedPostMetaKeys.has(metaKey)
               )
             );
             const mergedValue = {
@@ -1435,6 +1413,7 @@ var wp;
     {
       label: (0, import_i18n.__)("Base"),
       kind: "root",
+      key: false,
       name: "__unstableBase",
       baseURL: "/",
       baseURLParams: {
@@ -1598,6 +1577,13 @@ var wp;
       baseURLParams: { context: "edit" },
       plural: "statuses",
       key: "slug"
+    },
+    {
+      label: (0, import_i18n.__)("Registered Templates"),
+      name: "registeredTemplate",
+      kind: "root",
+      baseURL: "/wp/v2/registered-templates",
+      key: "id"
     }
   ];
   var deprecatedEntities = {
@@ -1735,6 +1721,7 @@ var wp;
       label: (0, import_i18n.__)("Site"),
       name: "site",
       kind: "root",
+      key: false,
       baseURL: "/wp/v2/settings",
       meta: {}
     };
@@ -2585,33 +2572,11 @@ var wp;
       }
       const currentTemplateSlug = editedEntity.template;
       if (currentTemplateSlug) {
-        const userTemplates = select(STORE_NAME).getEntityRecords(
-          "postType",
-          "wp_template",
-          { per_page: -1 }
-        );
-        if (!userTemplates) {
-          return;
-        }
-        const userTemplateWithSlug = userTemplates.find(
-          ({ slug }) => slug === currentTemplateSlug
-        );
-        if (userTemplateWithSlug) {
-          return userTemplateWithSlug.id;
-        }
-        const registeredTemplates = select(STORE_NAME).getEntityRecords(
-          "postType",
-          "wp_registered_template",
-          { per_page: -1 }
-        );
-        if (!registeredTemplates) {
-          return;
-        }
-        const registeredTemplateWithSlug = registeredTemplates.find(
-          ({ slug }) => slug === currentTemplateSlug
-        );
-        if (registeredTemplateWithSlug) {
-          return registeredTemplateWithSlug.id;
+        const currentTemplate = select(STORE_NAME).getEntityRecords("postType", "wp_template", {
+          per_page: -1
+        })?.find(({ slug }) => slug === currentTemplateSlug);
+        if (currentTemplate) {
+          return currentTemplate.id;
         }
       }
       let slugToCheck;
@@ -3609,8 +3574,9 @@ var wp;
     if (!entityConfig) {
       return;
     }
-    const entityIdKey = entityConfig.key || DEFAULT_ENTITY_KEY;
+    const entityIdKey = entityConfig.key ?? DEFAULT_ENTITY_KEY;
     const recordId = record[entityIdKey];
+    const isNewRecord = !!entityIdKey && !recordId;
     const lock2 = await dispatch.__unstableAcquireStoreLock(
       STORE_NAME,
       ["entities", "records", kind, name, recordId || v4_default()],
@@ -3650,11 +3616,7 @@ var wp;
       }
       try {
         const path = `${baseURL}${recordId ? "/" + recordId : ""}`;
-        const persistedRecord = select.getRawEntityRecord(
-          kind,
-          name,
-          recordId
-        );
+        const persistedRecord = !isNewRecord ? select.getRawEntityRecord(kind, name, recordId) : {};
         if (isAutosave) {
           const currentUser2 = select.getCurrentUser();
           const currentUserId = currentUser2 ? currentUser2.id : void 0;
@@ -4794,7 +4756,6 @@ var wp;
     const id = template?.wp_id || template?.id;
     if (id) {
       template.id = id;
-      template.type = typeof id === "string" ? "wp_registered_template" : "wp_template";
       registry.batch(() => {
         dispatch.receiveDefaultTemplateId(query, id);
         dispatch.receiveEntityRecords("postType", template.type, [

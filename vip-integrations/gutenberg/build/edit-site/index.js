@@ -43738,17 +43738,7 @@ If there's a particular need for this, please submit a feature request at https:
     {
       type: "regular",
       component: FormRegularField,
-      wrapper: ({
-        children,
-        layout
-      }) => /* @__PURE__ */ (0, import_jsx_runtime277.jsx)(
-        import_components148.__experimentalVStack,
-        {
-          className: "dataforms-layouts__wrapper",
-          spacing: layout?.spacing ?? 4,
-          children
-        }
-      )
+      wrapper: ({ children }) => /* @__PURE__ */ (0, import_jsx_runtime277.jsx)(import_components148.__experimentalVStack, { className: "dataforms-layouts__wrapper", spacing: 4, children })
     },
     {
       type: "panel",
@@ -43758,17 +43748,7 @@ If there's a particular need for this, please submit a feature request at https:
     {
       type: "card",
       component: FormCardField,
-      wrapper: ({
-        children,
-        layout
-      }) => /* @__PURE__ */ (0, import_jsx_runtime277.jsx)(
-        import_components148.__experimentalVStack,
-        {
-          className: "dataforms-layouts__wrapper",
-          spacing: layout?.spacing ?? 6,
-          children
-        }
-      )
+      wrapper: ({ children }) => /* @__PURE__ */ (0, import_jsx_runtime277.jsx)(import_components148.__experimentalVStack, { className: "dataforms-layouts__wrapper", spacing: 6, children })
     },
     {
       type: "row",
@@ -44710,7 +44690,13 @@ If there's a particular need for this, please submit a feature request at https:
         isPrimary: true,
         icon: pencil_default,
         isEligible(item) {
-          return !item._isCustom && !(item.slug === "index" && item.source === "theme") && item.theme === activeTheme.stylesheet;
+          if (item.theme !== activeTheme.stylesheet) {
+            return false;
+          }
+          if (typeof item.id !== "number") {
+            return item._isActive === false;
+          }
+          return !item._isCustom;
         },
         async callback(items) {
           const deactivate = items.some((item) => item._isActive);
@@ -44719,11 +44705,7 @@ If there's a particular need for this, please submit a feature request at https:
           };
           for (const item of items) {
             if (deactivate) {
-              if (item.source === "theme") {
-                activeTemplates[item.slug] = false;
-              } else {
-                delete activeTemplates[item.slug];
-              }
+              delete activeTemplates[item.slug];
             } else {
               activeTemplates[item.slug] = item.id;
             }
@@ -45213,13 +45195,7 @@ If there's a particular need for this, please submit a feature request at https:
     const {
       query: { activeView = "active" }
     } = useLocation26();
-    const { records } = (0, import_core_data51.useEntityRecords)(
-      "postType",
-      "wp_registered_template",
-      {
-        per_page: -1
-      }
-    );
+    const { records } = (0, import_core_data51.useEntityRecords)("root", "registeredTemplate");
     const firstItemPerAuthorText = (0, import_element133.useMemo)(() => {
       const firstItemPerAuthor = records?.reduce((acc, template) => {
         const author = template.author_text;
@@ -46610,9 +46586,8 @@ If there's a particular need for this, please submit a feature request at https:
   function useAllDefaultTemplateTypes() {
     const defaultTemplateTypes = useDefaultTemplateTypes();
     const { records: staticRecords } = useEntityRecordsWithPermissions(
-      "postType",
-      "wp_registered_template",
-      { per_page: -1 }
+      "root",
+      "registeredTemplate"
     );
     return [
       ...defaultTemplateTypes,
@@ -46696,6 +46671,7 @@ If there's a particular need for this, please submit a feature request at https:
   var activeField = {
     label: (0, import_i18n145.__)("Status"),
     id: "active",
+    type: "boolean",
     getValue: ({ item }) => item._isActive,
     render: function Render({ item }) {
       if (item._isCustom) {
@@ -46825,9 +46801,7 @@ If there's a particular need for this, please submit a feature request at https:
       per_page: -1,
       combinedTemplates: false
     });
-    const { records: staticRecords, isResolving: isLoadingStaticData } = useEntityRecordsWithPermissions2("postType", "wp_registered_template", {
-      per_page: -1
-    });
+    const { records: staticRecords, isResolving: isLoadingStaticData } = useEntityRecordsWithPermissions2("root", "registeredTemplate");
     const activeTemplates = (0, import_element139.useMemo)(() => {
       const _active = [...staticRecords].filter(
         (record) => !record.is_custom
@@ -46835,26 +46809,17 @@ If there's a particular need for this, please submit a feature request at https:
       if (activeTemplatesOption) {
         for (const activeSlug in activeTemplatesOption) {
           const activeId = activeTemplatesOption[activeSlug];
-          if (activeId === false) {
+          const template = userRecords.find(
+            (userRecord) => userRecord.id === activeId && userRecord.theme === activeTheme.stylesheet
+          );
+          if (template) {
             const index = _active.findIndex(
-              (template) => template.slug === activeSlug
+              ({ slug }) => slug === template.slug
             );
             if (index !== -1) {
-              _active.splice(index, 1);
-            }
-          } else {
-            const template = userRecords.find(
-              (userRecord) => userRecord.id === activeId && userRecord.theme === activeTheme.stylesheet
-            );
-            if (template) {
-              const index = _active.findIndex(
-                ({ slug }) => slug === template.slug
-              );
-              if (index !== -1) {
-                _active[index] = template;
-              } else {
-                _active.push(template);
-              }
+              _active[index] = template;
+            } else {
+              _active.push(template);
             }
           }
         }
@@ -46876,11 +46841,17 @@ If there's a particular need for this, please submit a feature request at https:
     const records = (0, import_element139.useMemo)(() => {
       return _records.map((record) => ({
         ...record,
-        _isActive: activeTemplates.find(
+        _isActive: !!activeTemplates.find(
           (template) => template.id === record.id
         ),
-        _isCustom: record.is_custom || !record.meta?.is_wp_suggestion && !defaultTemplateTypes.find(
-          (type) => type.slug === record.slug
+        _isCustom: (
+          // For registered templates, the is_custom field is defined.
+          record.is_custom ?? // For user templates it's custom if the is_wp_suggestion meta
+          // field is not set and the slug is not found in the default
+          // template types.
+          (!record.meta?.is_wp_suggestion && !defaultTemplateTypes.find(
+            (type) => type.slug === record.slug
+          ))
         )
       }));
     }, [_records, activeTemplates, defaultTemplateTypes]);
@@ -47032,7 +47003,7 @@ If there's a particular need for this, please submit a feature request at https:
               onChangeSelection,
               isItemClickable: () => true,
               onClickItem: (item) => {
-                if (item.type === "wp_registered_template") {
+                if (typeof item.id === "string") {
                   setSelectedRegisteredTemplate(item);
                 } else {
                   history.navigate(
