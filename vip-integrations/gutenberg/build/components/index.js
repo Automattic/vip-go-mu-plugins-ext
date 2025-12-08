@@ -27918,10 +27918,10 @@ This message will only show in development mode. It won't appear in production. 
   }
   function ensureValidStep(value, min3, step) {
     const baseValue = getNumber(value);
+    const minValue = getNumber(min3);
     const stepValue = getNumber(step);
     const precision = Math.max(getPrecision(step), getPrecision(min3));
-    const realMin = Math.abs(min3) === Infinity ? 0 : min3;
-    const tare = realMin % stepValue ? realMin : 0;
+    const tare = minValue % stepValue ? minValue : 0;
     const rounded3 = Math.round((baseValue - tare) / stepValue) * stepValue;
     const fromMin = rounded3 + tare;
     return precision ? getNumber(fromMin.toFixed(precision)) : fromMin;
