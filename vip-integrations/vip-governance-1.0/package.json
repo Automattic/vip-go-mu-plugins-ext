@@ -1,0 +1,76 @@
+{
+	"name": "vip-governance",
+	"version": "1.0.15",
+	"description": "This is a plugin adding additional governance capabilities to the block editor.",
+	"private": true,
+	"author": "WPVIP",
+	"main": "build/index.js",
+	"files": [
+		"build/",
+		"governance/",
+		"vendor/",
+		"vip-governance.php",
+		"governance-rules.json",
+		"governance-schema.json"
+	],
+	"devDependencies": {
+		"@automattic/eslint-plugin-wpvip": "^0.13.1",
+		"@playwright/test": "^1.56.1",
+		"@wordpress/block-editor": "^15.2.0",
+		"@wordpress/components": "^30.2.0",
+		"@wordpress/compose": "^7.29.0",
+		"@wordpress/data": "^10.29.0",
+		"@wordpress/e2e-test-utils-playwright": "^1.29.0",
+		"@wordpress/hooks": "^4.29.0",
+		"@wordpress/i18n": "^6.2.0",
+		"@wordpress/notices": "^5.29.0",
+		"@wordpress/scripts": "^30.22.0",
+		"babel-jest": "^30.1.2",
+		"eslint": "^8.57.0",
+		"lint-staged": "^16.1.0",
+		"prettier": "npm:wp-prettier@2.8.5",
+		"simple-git-hooks": "^2.13.1",
+		"webpack": "^5.91.0"
+	},
+	"scripts": {
+		"build": "webpack --mode production",
+		"dev": "webpack --watch",
+		"cmd:format": "prettier '**/*.(js|json|jsx|md|ts|tsx|yml|yaml)'",
+		"cmd:lint:js": "eslint --ext 'js,jsx,ts,tsx' --quiet",
+		"format": "npm run cmd:format -- --write",
+		"format:check": "npm run cmd:format -- --check",
+		"lint": "npm run format:check && npm run lint:js && npm run lint:php",
+		"lint:fix": "npm run cmd:lint:js . -- --fix",
+		"lint:js": "npm run cmd:lint:js",
+		"lint:php": "npm run lint:phpcs",
+		"lint:phpcs": "vendor/bin/phpcs --cache",
+		"lint:phpcs:fix": "vendor/bin/phpcbf",
+		"packages-update": "wp-scripts packages-update",
+		"plugin-zip": "npm run build && composer install --prefer-dist --optimize-autoloader --no-dev && wp-scripts plugin-zip",
+		"prepare": "npx simple-git-hooks",
+		"postinstall": "composer install",
+		"test": "npm run test:unit",
+		"test:unit": "npm run test:php && npm run test:js",
+		"test:e2e": "npx playwright test",
+		"test:js": "wp-scripts test-unit-js",
+		"wp-cli": "wp-env run cli -- wp"
+	},
+	"jest": {
+		"testMatch": [
+			"<rootDir>/src/**/*.test.js"
+		],
+		"preset": "@wordpress/jest-preset-default",
+		"testPathIgnorePatterns": [
+			"/.git/",
+			"/node_modules/",
+			"/governance/",
+			"/tests/"
+		],
+		"transform": {
+			"^.+\\.[jt]sx?$": "@wordpress/scripts/config/babel-transform.js"
+		}
+	},
+	"simple-git-hooks": {
+		"pre-commit": "npx lint-staged"
+	}
+}
