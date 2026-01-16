@@ -15,6 +15,11 @@ class Xml_Rpc {
 			return;
 		}
 
+		if ( is_proxied_request() ) {
+			// Requests via the Automattic proxy are allowed to use XML-RPC.
+			return;
+		}
+
 		switch ( self::$mode ) {
 			case 'DISABLE':
 				// Completely disable XML-RPC.
@@ -53,6 +58,11 @@ class Xml_Rpc {
 
 		// TODO: Figure how to disable XML-RPC without returning a value.
 		add_filter('wp_xmlrpc_server_class', function ( $server_class ) {
+			/**
+			 * Filters the HTTP status code returned when XML-RPC is disabled.
+			 */
+			status_header( (int) apply_filters( 'vip_security_boost_xml_rpc_disabled_status_code', 403 ) );
+
 			exit( 'Access to XML-RPC is disabled on this site.' );
 			// phpcs:ignore Squiz.PHP.NonExecutableCode.Unreachable
 			return $server_class;

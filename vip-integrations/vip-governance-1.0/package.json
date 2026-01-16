@@ -1,6 +1,6 @@
 {
 	"name": "vip-governance",
-	"version": "1.0.13",
+	"version": "1.0.15",
 	"description": "This is a plugin adding additional governance capabilities to the block editor.",
 	"private": true,
 	"author": "WPVIP",
@@ -15,7 +15,7 @@
 	],
 	"devDependencies": {
 		"@automattic/eslint-plugin-wpvip": "^0.13.1",
-		"@playwright/test": "^1.54.1",
+		"@playwright/test": "^1.56.1",
 		"@wordpress/block-editor": "^15.2.0",
 		"@wordpress/components": "^30.2.0",
 		"@wordpress/compose": "^7.29.0",
@@ -46,9 +46,8 @@
 		"lint:phpcs": "vendor/bin/phpcs --cache",
 		"lint:phpcs:fix": "vendor/bin/phpcbf",
 		"packages-update": "wp-scripts packages-update",
-		"plugin-zip": "npm run build && composer install --prefer-dist --optimize-autoloader --no-dev && wp-scripts plugin-zip",
 		"prepare": "npx simple-git-hooks",
-		"postinstall": "composer install",
+		"postinstall": "composer install --no-dev",
 		"test": "npm run test:unit",
 		"test:unit": "npm run test:php && npm run test:js",
 		"test:e2e": "npx playwright test",

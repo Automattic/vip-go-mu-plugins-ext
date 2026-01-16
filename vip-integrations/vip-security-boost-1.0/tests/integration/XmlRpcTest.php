@@ -42,11 +42,11 @@ class XmlRpcTest extends TestCase {
 	}
 
 	/**
-	 * Test that accessing XML-RPC endpoint returns 200 OK when module is disabled.
+	 * Test that accessing XML-RPC endpoint returns 403 Forbidden when module is disabled.
 	 *
 	 * @return void
 	 */
-	public function testXmlRpcReturns200WhenModuleDisabled(): void {
+	public function testXmlRpcReturns403WhenModuleDisabled(): void {
 		global $client;
 		$url = '/xmlrpc.php';
 
@@ -73,9 +73,9 @@ class XmlRpcTest extends TestCase {
 		]);
 
 		$this->assertEquals(
-			200,
+			403,
 			$response->getStatusCode(),
-			"Expected HTTP status code 200 OK, but received {$response->getStatusCode()}."
+			"Expected HTTP status code 403 Forbidden, but received {$response->getStatusCode()}."
 		);
 	}
 

@@ -2,6 +2,8 @@
 
 namespace VIPRealTimeCollaboration\Compatibility;
 
+use VIPRealTimeCollaboration\Settings\Settings;
+
 defined( 'ABSPATH' ) || exit();
 
 /**
@@ -40,18 +42,21 @@ final class Compatibility {
 	 *
 	 * @psalm-suppress PossiblyUnusedReturnValue Psalm does not detect usage via add_filter.
 	 */
-	public function enable_sync_collaboration_experiment( array|false $experiments ): array|false {
+	public function enable_sync_collaboration_experiment( mixed $experiments ): array {
 		global $pagenow;
 
-		// Do not enable on Site Editor.
-		if ( 'site-editor.php' === $pagenow ) {
-			return $experiments;
+		if ( ! is_array( $experiments ) ) {
+			$experiments = [];
 		}
 
-		if ( ! is_array( $experiments ) ) {
-			return [
-				'gutenberg-sync-collaboration' => true,
-			];
+		unset( $experiments['gutenberg-sync-collaboration'] );
+
+		// Check if RTC is enabled in settings.
+		$is_vip_rtc_enabled = Settings::is_vip_rtc_enabled();
+
+		// Do not enable on Site Editor, or if RTC is not enabled.
+		if ( 'site-editor.php' === $pagenow || ! $is_vip_rtc_enabled ) {
+			return $experiments;
 		}
 
 		$experiments['gutenberg-sync-collaboration'] = true;
@@ -66,7 +71,7 @@ final class Compatibility {
 	 * @return array<string>
 	 */
 	public static function get_supported_post_types(): array {
-		return get_post_types_by_support( [ 'collaborative-editing', 'editor' ], 'and' );
+		return get_post_types_by_support( [ 'editor' ] );
 	}
 
 	/**
