@@ -1,0 +1,47 @@
+name: Manual branch merges
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  merge-branches:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source code
+        uses: actions/checkout@v5.0.0
+        with:
+          fetch-depth: 0
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Merge and tag branches
+        run: |
+          set -euo pipefail
+          DATE=$(date +%Y%m%d)
+          git fetch --prune --tags origin \
+            +refs/heads/production:refs/remotes/origin/production \
+            +refs/heads/staging:refs/remotes/origin/staging \
+            +refs/heads/trunk:refs/remotes/origin/trunk
+          tag_and_push() {
+            local tag=$1
+            if git show-ref --tags -q "$tag"; then
+              echo "Tag ${tag} already exists."
+              return 0
+            fi
+            git tag "$tag"
+            git push origin "$tag"
+          }
+          git checkout -B production origin/production
+          git merge --no-ff origin/staging || { echo "Merge conflict merging staging into production."; exit 1; }
+          git push origin production
+          tag_and_push "${DATE}.production"
+          git checkout -B staging origin/staging
+          git merge --no-ff origin/trunk || { echo "Merge conflict merging trunk into staging."; exit 1; }
+          git push origin staging
+          tag_and_push "${DATE}.staging"
