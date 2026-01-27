@@ -23,7 +23,7 @@ jobs:
       - name: Merge and tag branches
         run: |
           set -euo pipefail
-          DATE=$(date +%Y%m%d)
+          DATE=$(date +%Y%m%d%H%M%S)
           git fetch --prune --tags origin \
             +refs/heads/production:refs/remotes/origin/production \
             +refs/heads/staging:refs/remotes/origin/staging \
