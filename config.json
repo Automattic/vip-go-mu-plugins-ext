@@ -120,5 +120,16 @@
       "0.1": "0.1.8",
       "0.2": "0.2.1"
     }
+  },
+  "vip-agentforce": {
+    "repo": "https://github.com/automattic/vip-agentforce",
+    "folderPrefix": "vip-integrations/vip-agentforce-",
+    "versionPrefix": "v",
+    "lowestVersion": "0.1",
+    "skip": [],
+    "ignore": [],
+    "current": {
+      "0.1": "0.1.0"
+    }
   }
 }
