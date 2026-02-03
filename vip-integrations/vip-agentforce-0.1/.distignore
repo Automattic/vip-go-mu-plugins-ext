@@ -1,0 +1,46 @@
+# Development files
+.devcontainer
+.editorconfig
+.git
+.github
+.gitignore
+.nvmrc
+.phpcs.xml.dist
+.phpcs.xml
+.prettierrc
+.vscode
+.wpvip
+.claude
+
+# Build tools
+babel.config.js
+bin
+composer.json
+composer.lock
+package.json
+package-lock.json
+phpstan.neon
+phpunit.xml
+webpack.config.js
+
+# Source assets (built assets are in assets/build)
+assets/src
+
+# Tests and documentation
+docs
+tests
+
+# Dependencies
+node_modules
+mu-plugins
+vendor
+
+# Build output
+dist
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Misc
+env.php
