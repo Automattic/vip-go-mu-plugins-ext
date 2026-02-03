@@ -1,0 +1,78 @@
+name: Prepare Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version-type:
+        description: 'Version bump type'
+        required: true
+        type: choice
+        default: 'patch'
+        options:
+          - patch
+          - minor
+          - major
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  prepare:
+    name: Prepare Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          ssh-key: ${{ secrets.DEPLOY_KEY }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+
+      - name: Configure git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Bump version
+        id: bump
+        run: |
+          # Get current version from package.json
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          echo "Current version: $CURRENT_VERSION"
+          
+          # Bump version using npm (updates package.json and package-lock.json)
+          npm version ${{ inputs.version-type }} --no-git-tag-version
+          
+          # Get new version
+          NEW_VERSION=$(node -p "require('./package.json').version")
+          echo "New version: $NEW_VERSION"
+          
+          # Update version in main plugin file
+          sed -i "s/Version: .*/Version: $NEW_VERSION/" vip-agentforce.php
+          
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Create release branch and PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BRANCH_NAME="release/v${{ steps.bump.outputs.new_version }}"
+          
+          git checkout -b "$BRANCH_NAME"
+          git add package.json package-lock.json vip-agentforce.php
+          git commit -m "chore: release v${{ steps.bump.outputs.new_version }}"
+          git push origin "$BRANCH_NAME"
+          
+          gh pr create \
+            --title "Release v${{ steps.bump.outputs.new_version }}" \
+            --label "release" \
+            --body "## Release v${{ steps.bump.outputs.new_version }}
+
+          This PR bumps the version to ${{ steps.bump.outputs.new_version }}.
+
+          **Merging this PR will automatically trigger the package workflow.**" \
+            --assignee "${{ github.actor }}"
