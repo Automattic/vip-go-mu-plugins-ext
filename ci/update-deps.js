@@ -156,11 +156,22 @@ async function maybeUpdateVersion(plugin, minorVersion, version) {
         return false;
       }
 
-      // update
-      execCommand(`git rm -r ${folderRelative}`);
-      execCommand(
-        `git commit -m "Removing ${folderRelative} for subtree replacement to ${version}"`
-      );
+      // update - only remove if folder actually exists
+      const folderExists = fs.existsSync(folder);
+      if (folderExists) {
+        execCommand(`git rm -r ${folderRelative}`);
+        execCommand(
+          `git commit -m "Removing ${folderRelative} for subtree replacement to ${version}"`
+        );
+      } else {
+        console.log(`Folder ${folderRelative} does not exist on disk (config out of sync), skipping removal`);
+      }
+
+      // Ensure parent directory exists for subtree operations
+      const parentDir = path.dirname(folder);
+      if (!fs.existsSync(parentDir)) {
+        fs.mkdirSync(parentDir, { recursive: true });
+      }
 
       if (config.releaseZipFileName) {
         await downloadReleaseZip(plugin, version, folder);
@@ -183,7 +194,12 @@ async function maybeUpdateVersion(plugin, minorVersion, version) {
         }
       }
     } else {
-      // add
+      // add - ensure parent directory exists for subtree operations
+      const parentDir = path.dirname(folder);
+      if (!fs.existsSync(parentDir)) {
+        fs.mkdirSync(parentDir, { recursive: true });
+      }
+
       if (config.releaseZipFileName) {
         await downloadReleaseZip(plugin, version, folder);
         execCommand(`git add ${folderRelative}`);
