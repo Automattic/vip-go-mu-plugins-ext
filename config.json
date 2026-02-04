@@ -127,6 +127,7 @@
     "folderPrefix": "vip-integrations/vip-agentforce-",
     "versionPrefix": "v",
     "lowestVersion": "0.1",
+    "releaseZipFileName": "vip-agentforce",
     "skip": [],
     "ignore": [],
     "current": {
