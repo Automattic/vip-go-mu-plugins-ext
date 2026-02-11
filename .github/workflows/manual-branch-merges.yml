@@ -31,9 +31,9 @@ jobs:
         run: |
           set -euo pipefail
           DATE=$(date +%Y%m%d%H%M%S)
-          git fetch --prune --tags origin \ 
-            +refs/heads/production:refs/remotes/origin/production \ 
-            +refs/heads/staging:refs/remotes/origin/staging \ 
+          git fetch --prune --tags origin \
+            +refs/heads/production:refs/remotes/origin/production \
+            +refs/heads/staging:refs/remotes/origin/staging \
             +refs/heads/trunk:refs/remotes/origin/trunk
           tag_and_push() {
             local tag=$1
