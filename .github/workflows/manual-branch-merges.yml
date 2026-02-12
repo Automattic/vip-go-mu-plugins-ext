@@ -10,10 +10,17 @@ jobs:
   merge-branches:
     runs-on: ubuntu-latest
     steps:
-      - name: Check out source code
+      - name: Require trunk dispatch
+        if: github.ref != 'refs/heads/trunk'
+        run: |
+          echo "This workflow must be run from trunk."
+          exit 1
+
+      - name: Check out trunk
         uses: actions/checkout@v5.0.0
         with:
           fetch-depth: 0
+          ref: trunk
 
       - name: Configure git
         run: |
