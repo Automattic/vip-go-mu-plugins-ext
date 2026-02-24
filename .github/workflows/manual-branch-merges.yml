@@ -28,6 +28,8 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Merge and tag branches
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           DATE=$(date +%Y%m%d%H%M%S)
@@ -35,20 +37,25 @@ jobs:
             +refs/heads/production:refs/remotes/origin/production \
             +refs/heads/staging:refs/remotes/origin/staging \
             +refs/heads/trunk:refs/remotes/origin/trunk
-          tag_and_push() {
+          tag_and_release() {
             local tag=$1
             if git show-ref --tags -q "$tag"; then
               echo "Tag ${tag} already exists."
+            else
+              git tag "$tag"
+              git push origin "$tag"
+            fi
+            if gh release view "$tag" >/dev/null 2>&1; then
+              echo "Release ${tag} already exists."
               return 0
             fi
-            git tag "$tag"
-            git push origin "$tag"
+            gh release create "$tag" --title "$tag" --generate-notes
           }
           git checkout -B production origin/production
           git merge --no-ff origin/staging || { echo "Merge conflict merging staging into production."; exit 1; }
           git push origin production
-          tag_and_push "${DATE}.production"
+          tag_and_release "${DATE}.production"
           git checkout -B staging origin/staging
           git merge --no-ff origin/trunk || { echo "Merge conflict merging trunk into staging."; exit 1; }
           git push origin staging
-          tag_and_push "${DATE}.staging"
+          tag_and_release "${DATE}.staging"
