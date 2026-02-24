@@ -2,11 +2,14 @@
 /**
  * Class Gutenberg_REST_Attachments_Controller.
  *
- * @package MediaExperiments
+ * @package gutenberg
  */
 
 /**
- * Class Gutenberg_REST_Attachments_Controller.
+ * REST API controller for media attachments.
+ *
+ * Extends the core attachments controller to add client-side media processing
+ * functionality including sideload support and sub-size generation control.
  */
 class Gutenberg_REST_Attachments_Controller extends WP_REST_Attachments_Controller {
 	/**
@@ -17,38 +20,41 @@ class Gutenberg_REST_Attachments_Controller extends WP_REST_Attachments_Controll
 	public function register_routes(): void {
 		parent::register_routes();
 
-		$valid_image_sizes = array_keys( wp_get_registered_image_subsizes() );
+		// Only register the sideload route if the parent class doesn't already have it.
+		if ( ! method_exists( get_parent_class( $this ), 'sideload_item' ) ) {
+			$valid_image_sizes = array_keys( wp_get_registered_image_subsizes() );
 
-		// Special case to set 'original_image' in attachment metadata.
-		$valid_image_sizes[] = 'original';
-		// Used for PDF thumbnails.
-		$valid_image_sizes[] = 'full';
+			// Special case to set 'original_image' in attachment metadata.
+			$valid_image_sizes[] = 'original';
+			// Used for PDF thumbnails.
+			$valid_image_sizes[] = 'full';
 
-		register_rest_route(
-			$this->namespace,
-			'/' . $this->rest_base . '/(?P<id>[\d]+)/sideload',
-			array(
+			register_rest_route(
+				$this->namespace,
+				'/' . $this->rest_base . '/(?P<id>[\d]+)/sideload',
 				array(
-					'methods'             => WP_REST_Server::CREATABLE,
-					'callback'            => array( $this, 'sideload_item' ),
-					'permission_callback' => array( $this, 'sideload_item_permissions_check' ),
-					'args'                => array(
-						'id'         => array(
-							'description' => __( 'Unique identifier for the attachment.', 'gutenberg' ),
-							'type'        => 'integer',
-						),
-						'image_size' => array(
-							'description' => __( 'Image size.', 'gutenberg' ),
-							'type'        => 'string',
-							'enum'        => $valid_image_sizes,
-							'required'    => true,
+					array(
+						'methods'             => WP_REST_Server::CREATABLE,
+						'callback'            => array( $this, 'sideload_item' ),
+						'permission_callback' => array( $this, 'sideload_item_permissions_check' ),
+						'args'                => array(
+							'id'         => array(
+								'description' => __( 'Unique identifier for the attachment.', 'gutenberg' ),
+								'type'        => 'integer',
+							),
+							'image_size' => array(
+								'description' => __( 'Image size.', 'gutenberg' ),
+								'type'        => 'string',
+								'enum'        => $valid_image_sizes,
+								'required'    => true,
+							),
 						),
 					),
-				),
-				'allow_batch' => $this->allow_batch,
-				'schema'      => array( $this, 'get_public_item_schema' ),
-			)
-		);
+					'allow_batch' => $this->allow_batch,
+					'schema'      => array( $this, 'get_public_item_schema' ),
+				)
+			);
+		}
 	}
 
 	/**
@@ -79,9 +85,30 @@ class Gutenberg_REST_Attachments_Controller extends WP_REST_Attachments_Controll
 	}
 
 	/**
+	 * Retrieves the attachment's schema, conforming to JSON Schema.
+	 *
+	 * Adds exif_orientation field to the schema.
+	 *
+	 * @return array Item schema data.
+	 */
+	public function get_item_schema() {
+		$schema = parent::get_item_schema();
+
+		$schema['properties']['exif_orientation'] = array(
+			'description' => __( 'EXIF orientation value from the original image. Values 1-8 follow the EXIF specification. A value other than 1 indicates the image needs rotation.', 'gutenberg' ),
+			'type'        => 'integer',
+			'context'     => array( 'edit' ),
+			'readonly'    => true,
+		);
+
+		return $schema;
+	}
+
+	/**
 	 * Prepares a single attachment output for response.
 	 *
 	 * Ensures 'missing_image_sizes' is set for PDFs and not just images.
+	 * Adds 'exif_orientation' for images that need client-side rotation.
 	 *
 	 * @param WP_Post         $item    Attachment object.
 	 * @param WP_REST_Request $request Request object.
@@ -92,9 +119,31 @@ class Gutenberg_REST_Attachments_Controller extends WP_REST_Attachments_Controll
 
 		$data = $response->get_data();
 
-		// Handle missing image sizes for PDFs.
-
 		$fields = $this->get_fields_for_response( $request );
+
+		// Add EXIF orientation for images.
+		if ( rest_is_field_included( 'exif_orientation', $fields ) ) {
+			if ( wp_attachment_is_image( $item ) ) {
+				$metadata = wp_get_attachment_metadata( $item->ID, true );
+
+				// Get the EXIF orientation from the image metadata.
+				// This is stored by wp_read_image_metadata() during upload.
+				// Values:
+				//   0 = undefined (no EXIF data), treat as no rotation needed
+				//   1 = normal (no rotation needed)
+				//   2-8 = various rotations/flips needed
+				$orientation = 1; // Default: no rotation needed.
+				if (
+					is_array( $metadata ) &&
+					isset( $metadata['image_meta']['orientation'] ) &&
+					(int) $metadata['image_meta']['orientation'] > 0
+				) {
+					$orientation = (int) $metadata['image_meta']['orientation'];
+				}
+
+				$data['exif_orientation'] = $orientation;
+			}
+		}
 
 		if (
 			rest_is_field_included( 'missing_image_sizes', $fields ) &&
@@ -158,7 +207,9 @@ class Gutenberg_REST_Attachments_Controller extends WP_REST_Attachments_Controll
 		if ( ! $request['generate_sub_sizes'] ) {
 			add_filter( 'intermediate_image_sizes_advanced', '__return_empty_array', 100 );
 			add_filter( 'fallback_intermediate_image_sizes', '__return_empty_array', 100 );
-
+			// Disable server-side EXIF rotation so the client can handle it.
+			// This preserves the original orientation value in the metadata.
+			add_filter( 'wp_image_maybe_exif_rotate', '__return_false', 100 );
 		}
 
 		if ( ! $request['convert_format'] ) {
@@ -169,6 +220,7 @@ class Gutenberg_REST_Attachments_Controller extends WP_REST_Attachments_Controll
 
 		remove_filter( 'intermediate_image_sizes_advanced', '__return_empty_array', 100 );
 		remove_filter( 'fallback_intermediate_image_sizes', '__return_empty_array', 100 );
+		remove_filter( 'wp_image_maybe_exif_rotate', '__return_false', 100 );
 		remove_filter( 'image_editor_output_format', '__return_empty_array', 100 );
 
 		return $response;
@@ -202,16 +254,14 @@ class Gutenberg_REST_Attachments_Controller extends WP_REST_Attachments_Controll
 	 *
 	 * @link https://github.com/WordPress/wordpress-develop/blob/30954f7ac0840cfdad464928021d7f380940c347/src/wp-includes/functions.php#L2576-L2582
 	 *
-	 * @param string        $filename                 Unique file name.
-	 * @param string        $ext                      File extension. Example: ".png".
-	 * @param string        $dir                      Directory path.
-	 * @param callable|null $unique_filename_callback Callback function that generates the unique file name.
-	 * @param string[]      $alt_filenames            Array of alternate file names that were checked for collisions.
-	 * @param int|string    $number                   The highest number that was used to make the file name unique
-	 *                                                or an empty string if unused.
+	 * @param string     $filename            Unique file name.
+	 * @param string     $dir                 Directory path.
+	 * @param int|string $number              The highest number that was used to make the file name unique
+	 *                                        or an empty string if unused.
+	 * @param string     $attachment_filename Original attachment file name.
 	 * @return string Filtered file name.
 	 */
-	private function filter_wp_unique_filename( $filename, $ext, $dir, $unique_filename_callback, $alt_filenames, $number, $attachment_filename ) {
+	private static function filter_wp_unique_filename( $filename, $dir, $number, $attachment_filename ) {
 		if ( empty( $number ) || ! $attachment_filename ) {
 			return $filename;
 		}
@@ -289,8 +339,8 @@ class Gutenberg_REST_Attachments_Controller extends WP_REST_Attachments_Controll
 		 *                                                or an empty string if unused.
 		 * @return string Filtered file name.
 		 */
-		$filter_filename = function ( $filename, $ext, $dir, $unique_filename_callback, $alt_filenames, $number ) use ( $attachment_filename ) {
-			return $this->filter_wp_unique_filename( $filename, $ext, $dir, $unique_filename_callback, $alt_filenames, $number, $attachment_filename );
+		$filter_filename = static function ( $filename, $ext, $dir, $unique_filename_callback, $alt_filenames, $number ) use ( $attachment_filename ) {
+			return self::filter_wp_unique_filename( $filename, $dir, $number, $attachment_filename );
 		};
 
 		add_filter( 'wp_unique_filename', $filter_filename, 10, 6 );
