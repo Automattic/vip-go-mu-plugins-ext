@@ -1,1 +1,1 @@
-.wp-block-tabs-menu .tabs__tab-label--placeholder{font-style:italic;opacity:.5}
+.wp-block-tabs-menu .block-editor-block-list__block:has(>.wp-block-tabs-menu-item),.wp-block-tabs-menu>.block-editor-block-list__layout{display:contents}

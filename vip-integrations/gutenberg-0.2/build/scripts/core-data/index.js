@@ -421,9 +421,9 @@ var wp;
     SelectionType: () => SelectionType,
     __experimentalFetchLinkSuggestions: () => fetchLinkSuggestions,
     __experimentalFetchUrlData: () => experimental_fetch_url_data_default,
-    __experimentalUseEntityRecord: () => __experimentalUseEntityRecord,
-    __experimentalUseEntityRecords: () => __experimentalUseEntityRecords,
-    __experimentalUseResourcePermissions: () => __experimentalUseResourcePermissions,
+    __experimentalUseEntityRecord: () => useDeprecatedEntityRecord,
+    __experimentalUseEntityRecords: () => useDeprecatedEntityRecords,
+    __experimentalUseResourcePermissions: () => useDeprecatedResourcePermissions,
     fetchBlockPatterns: () => fetchBlockPatterns,
     privateApis: () => privateApis,
     store: () => store,
@@ -536,11 +536,6 @@ var wp;
   }
   var with_weak_map_cache_default = withWeakMapCache;
 
-  // packages/core-data/build-module/utils/is-raw-attribute.mjs
-  function isRawAttribute(entity2, attribute) {
-    return (entity2.rawAttributes || []).includes(attribute);
-  }
-
   // packages/core-data/build-module/utils/set-nested-value.mjs
   function setNestedValue(object, path, value) {
     if (!object || typeof object !== "object") {
@@ -590,9 +585,6 @@ var wp;
   ];
   function getUserPermissionsFromAllowHeader(allowedMethods) {
     const permissions = {};
-    if (!allowedMethods) {
-      return permissions;
-    }
     const methods = {
       create: "POST",
       read: "GET",
@@ -600,7 +592,7 @@ var wp;
       delete: "DELETE"
     };
     for (const [actionName, methodName] of Object.entries(methods)) {
-      permissions[actionName] = allowedMethods.includes(methodName);
+      permissions[actionName] = allowedMethods ? allowedMethods.includes(methodName) : false;
     }
     return permissions;
   }
@@ -614,11 +606,22 @@ var wp;
     "RECEIVE_INTERMEDIATE_RESULTS"
   );
 
+  // packages/core-data/build-module/utils/normalize-query-for-resolution.mjs
+  function normalizeQueryForResolution(query) {
+    if (!query) {
+      return void 0;
+    }
+    const entries = Object.entries(query).filter(
+      ([k, v]) => (k === "context" || k === "_fields") && v !== void 0 && v !== null
+    );
+    return entries.length > 0 ? Object.fromEntries(entries) : void 0;
+  }
+
   // packages/core-data/build-module/queried-data/actions.mjs
   function receiveItems(items2, edits, meta) {
     return {
       type: "RECEIVE_ITEMS",
-      items: Array.isArray(items2) ? items2 : [items2],
+      items: items2,
       persistedEdits: edits,
       meta
     };
@@ -650,6 +653,7 @@ var wp;
       stableKey: "",
       page: 1,
       perPage: 10,
+      offset: null,
       fields: null,
       include: null,
       context: "default"
@@ -665,6 +669,13 @@ var wp;
         case "per_page":
           parts.perPage = Number(value);
           break;
+        case "offset": {
+          const numericOffset = Number(value);
+          if (Number.isFinite(numericOffset)) {
+            parts.offset = numericOffset;
+          }
+          break;
+        }
         case "context":
           parts.context = value;
           break;
@@ -689,17 +700,30 @@ var wp;
 
   // packages/core-data/build-module/queried-data/selectors.mjs
   var queriedItemsCacheByState = /* @__PURE__ */ new WeakMap();
-  function getQueriedItemsUncached(state, query) {
-    const { stableKey, page, perPage, include, fields, context } = get_query_parts_default(query);
-    let itemIds;
-    if (state.queries?.[context]?.[stableKey]) {
-      itemIds = state.queries[context][stableKey].itemIds;
-    }
+  function getQueriedItemsUncached(state, query, options = {}) {
+    const { supportsPagination = true } = options;
+    const {
+      stableKey,
+      page,
+      perPage,
+      offset: queryOffset,
+      include,
+      fields,
+      context
+    } = get_query_parts_default(query);
+    const itemIds = state.queries?.[context]?.[stableKey]?.itemIds;
     if (!itemIds) {
       return null;
     }
-    const startOffset = perPage === -1 ? 0 : (page - 1) * perPage;
-    const endOffset = perPage === -1 ? itemIds.length : Math.min(startOffset + perPage, itemIds.length);
+    const isPaginated = supportsPagination && perPage !== -1;
+    const startOffset = isPaginated ? queryOffset ?? (page - 1) * perPage : 0;
+    const endOffset = isPaginated ? Math.min(startOffset + perPage, itemIds.length) : itemIds.length;
+    if (isPaginated && itemIds.length < startOffset + perPage) {
+      const totalItems = state.queries[context][stableKey].meta?.totalItems;
+      if (Number.isFinite(totalItems) && itemIds.length < totalItems) {
+        return null;
+      }
+    }
     const items2 = [];
     for (let i = startOffset; i < endOffset; i++) {
       const itemId = itemIds[i];
@@ -734,21 +758,23 @@ var wp;
     }
     return items2;
   }
-  var getQueriedItems = (0, import_data.createSelector)((state, query = {}) => {
-    let queriedItemsCache = queriedItemsCacheByState.get(state);
-    if (queriedItemsCache) {
-      const queriedItems = queriedItemsCache.get(query);
-      if (queriedItems !== void 0) {
-        return queriedItems;
+  var getQueriedItems = (0, import_data.createSelector)(
+    (state, query = {}, options = {}) => {
+      let queriedItemsCache = queriedItemsCacheByState.get(state);
+      if (queriedItemsCache) {
+        const queriedItems = queriedItemsCache.get(query);
+        if (queriedItems !== void 0) {
+          return queriedItems;
+        }
+      } else {
+        queriedItemsCache = new import_equivalent_key_map.default();
+        queriedItemsCacheByState.set(state, queriedItemsCache);
       }
-    } else {
-      queriedItemsCache = new import_equivalent_key_map.default();
-      queriedItemsCacheByState.set(state, queriedItemsCache);
+      const items2 = getQueriedItemsUncached(state, query, options);
+      queriedItemsCache.set(query, items2);
+      return items2;
     }
-    const items2 = getQueriedItemsUncached(state, query);
-    queriedItemsCache.set(query, items2);
-    return items2;
-  });
+  );
   function getQueriedTotalItems(state, query = {}) {
     const { stableKey, context } = get_query_parts_default(query);
     return state.queries?.[context]?.[stableKey]?.meta?.totalItems ?? null;
@@ -2009,7 +2035,7 @@ var wp;
       const { name, innerBlocks, attributes, ...rest } = block;
       const newAttributes = { ...attributes };
       for (const [key, value] of Object.entries(attributes)) {
-        const schema = getBlockAttributeType(name, key);
+        const schema = getBlockAttributeSchema(name, key);
         if (schema) {
           newAttributes[key] = deserializeAttributeValue(
             schema,
@@ -2058,11 +2084,44 @@ var wp;
     );
   }
   function createNewYAttributeValue(blockName, attributeName, attributeValue) {
-    const isRichText = isRichTextAttribute(blockName, attributeName);
-    if (isRichText) {
-      return new import_sync9.Y.Text(attributeValue?.toString() ?? "");
+    const schema = getBlockAttributeSchema(blockName, attributeName);
+    return createYValueFromSchema(schema, attributeValue);
+  }
+  function createYValueFromSchema(schema, value) {
+    if (!schema) {
+      return value;
     }
-    return attributeValue;
+    if (schema.type === "rich-text") {
+      return new import_sync9.Y.Text(value?.toString() ?? "");
+    }
+    if (schema.type === "array" && schema.query && Array.isArray(value)) {
+      const query = schema.query;
+      const yArray = new import_sync9.Y.Array();
+      yArray.insert(
+        0,
+        value.map((item) => createYMapFromQuery(query, item))
+      );
+      return yArray;
+    }
+    if (schema.type === "object" && schema.query && isRecord(value)) {
+      return createYMapFromQuery(schema.query, value);
+    }
+    return value;
+  }
+  function isRecord(value) {
+    return !!value && typeof value === "object" && !Array.isArray(value);
+  }
+  function createYMapFromQuery(query, obj) {
+    if (!isRecord(obj)) {
+      return new import_sync9.Y.Map();
+    }
+    const entries = Object.entries(obj).map(
+      ([key, val]) => {
+        const subSchema = query[key];
+        return [key, createYValueFromSchema(subSchema, val)];
+      }
+    );
+    return new import_sync9.Y.Map(entries);
   }
   function createNewYBlock(block) {
     return createYMap(
@@ -2147,7 +2206,8 @@ var wp;
                   attributeName,
                   currentAttribute
                 );
-                const isAttributeChanged = !isExpectedType || !(0, import_es62.default)(
+                const isYType = currentAttribute instanceof import_sync9.Y.AbstractType;
+                const isAttributeChanged = !isExpectedType || isYType || !(0, import_es62.default)(
                   currentAttribute,
                   attributeValue
                 );
@@ -2215,24 +2275,110 @@ var wp;
       knownClientIds.add(clientId);
     }
   }
-  function updateYBlockAttribute(blockName, attributeName, attributeValue, currentAttributes, cursorPosition) {
-    const isRichText = isRichTextAttribute(blockName, attributeName);
-    const currentAttribute = currentAttributes.get(attributeName);
-    if (isRichText && "string" === typeof attributeValue && currentAttributes.has(attributeName) && currentAttribute instanceof import_sync9.Y.Text) {
-      mergeRichTextUpdate(currentAttribute, attributeValue, cursorPosition);
-    } else {
-      currentAttributes.set(
-        attributeName,
-        createNewYAttributeValue(blockName, attributeName, attributeValue)
+  function areArrayElementsEqual(newElement, yElement) {
+    if (yElement instanceof import_sync9.Y.Map && isRecord(newElement)) {
+      return (0, import_es62.default)(newElement, yElement.toJSON());
+    }
+    return (0, import_es62.default)(newElement, yElement);
+  }
+  function mergeYArray(yArray, newValue, schema, cursorPosition) {
+    if (!schema.query) {
+      return;
+    }
+    const query = schema.query;
+    const numOfCommonEntries = Math.min(newValue.length, yArray.length);
+    let left = 0;
+    let right = 0;
+    for (; left < numOfCommonEntries && areArrayElementsEqual(newValue[left], yArray.get(left)); left++) {
+    }
+    for (; right < numOfCommonEntries - left && areArrayElementsEqual(
+      newValue[newValue.length - right - 1],
+      yArray.get(yArray.length - right - 1)
+    ); right++) {
+    }
+    const numOfUpdatesNeeded = numOfCommonEntries - left - right;
+    for (let i = 0; i < numOfUpdatesNeeded; i++) {
+      const currentElement = yArray.get(left + i);
+      const newElement = newValue[left + i];
+      if (currentElement instanceof import_sync9.Y.Map && isRecord(newElement)) {
+        mergeYMapValues(
+          currentElement,
+          newElement,
+          query,
+          cursorPosition
+        );
+      } else {
+        yArray.delete(0, yArray.length);
+        yArray.insert(
+          0,
+          newValue.map((item) => createYMapFromQuery(query, item))
+        );
+        return;
+      }
+    }
+    const numOfDeletionsNeeded = Math.max(0, yArray.length - newValue.length);
+    if (numOfDeletionsNeeded > 0) {
+      yArray.delete(left + numOfUpdatesNeeded, numOfDeletionsNeeded);
+    }
+    const numOfInsertionsNeeded = Math.max(
+      0,
+      newValue.length - yArray.length
+    );
+    if (numOfInsertionsNeeded > 0) {
+      const insertAt = left + numOfUpdatesNeeded;
+      const itemsToInsert = new Array(
+        numOfInsertionsNeeded
       );
+      for (let i = 0; i < numOfInsertionsNeeded; i++) {
+        itemsToInsert[i] = createYMapFromQuery(
+          query,
+          newValue[insertAt + i]
+        );
+      }
+      yArray.insert(insertAt, itemsToInsert);
     }
   }
-  var cachedBlockAttributeTypes;
-  function getBlockAttributeType(blockName, attributeName) {
-    if (!cachedBlockAttributeTypes) {
-      cachedBlockAttributeTypes = /* @__PURE__ */ new Map();
+  function mergeYValue(schema, newVal, yMap, key, cursorPosition) {
+    const currentVal = yMap.get(key);
+    if (schema?.type === "rich-text" && typeof newVal === "string" && currentVal instanceof import_sync9.Y.Text) {
+      mergeRichTextUpdate(currentVal, newVal, cursorPosition);
+    } else if (schema?.type === "array" && schema.query && Array.isArray(newVal) && currentVal instanceof import_sync9.Y.Array) {
+      mergeYArray(currentVal, newVal, schema, cursorPosition);
+    } else if (schema?.type === "object" && schema.query && isRecord(newVal) && currentVal instanceof import_sync9.Y.Map) {
+      mergeYMapValues(currentVal, newVal, schema.query, cursorPosition);
+    } else {
+      const newYValue = createYValueFromSchema(schema, newVal);
+      if (newYValue !== newVal || !(0, import_es62.default)(currentVal, newVal)) {
+        yMap.set(key, newYValue);
+      }
+    }
+  }
+  function mergeYMapValues(yMap, newObj, query, cursorPosition) {
+    for (const [key, newVal] of Object.entries(newObj)) {
+      mergeYValue(query[key], newVal, yMap, key, cursorPosition);
+    }
+    for (const key of yMap.keys()) {
+      if (!Object.hasOwn(newObj, key)) {
+        yMap.delete(key);
+      }
+    }
+  }
+  function updateYBlockAttribute(blockName, attributeName, attributeValue, currentAttributes, cursorPosition) {
+    const schema = getBlockAttributeSchema(blockName, attributeName);
+    mergeYValue(
+      schema,
+      attributeValue,
+      currentAttributes,
+      attributeName,
+      cursorPosition
+    );
+  }
+  var cachedBlockAttributeSchemas;
+  function getBlockAttributeSchema(blockName, attributeName) {
+    if (!cachedBlockAttributeSchemas) {
+      cachedBlockAttributeSchemas = /* @__PURE__ */ new Map();
       for (const blockType of (0, import_blocks.getBlockTypes)()) {
-        cachedBlockAttributeTypes.set(
+        cachedBlockAttributeSchemas.set(
           blockType.name,
           new Map(
             Object.entries(blockType.attributes ?? {}).map(
@@ -2245,26 +2391,26 @@ var wp;
         );
       }
     }
-    return cachedBlockAttributeTypes.get(blockName)?.get(attributeName);
+    return cachedBlockAttributeSchemas.get(blockName)?.get(attributeName);
   }
   function isExpectedAttributeType(blockName, attributeName, attributeValue) {
-    const expectedAttributeType = getBlockAttributeType(
-      blockName,
-      attributeName
-    )?.type;
-    if (expectedAttributeType === "rich-text") {
+    const schema = getBlockAttributeSchema(blockName, attributeName);
+    if (schema?.type === "rich-text") {
       return attributeValue instanceof import_sync9.Y.Text;
     }
-    if (expectedAttributeType === "string") {
+    if (schema?.type === "string") {
       return typeof attributeValue === "string";
+    }
+    if (schema?.type === "array" && schema.query) {
+      return attributeValue instanceof import_sync9.Y.Array;
+    }
+    if (schema?.type === "object" && schema.query) {
+      return attributeValue instanceof import_sync9.Y.Map;
     }
     return true;
   }
   function isLocalAttribute(blockName, attributeName) {
-    return "local" === getBlockAttributeType(blockName, attributeName)?.role;
-  }
-  function isRichTextAttribute(blockName, attributeName) {
-    return "rich-text" === getBlockAttributeType(blockName, attributeName)?.type;
+    return "local" === getBlockAttributeSchema(blockName, attributeName)?.role;
   }
   var localDoc;
   function mergeRichTextUpdate(blockYText, updatedValue, cursorPosition = null) {
@@ -2682,6 +2828,12 @@ var wp;
     createAwareness: (ydoc) => new BaseAwareness(ydoc),
     getChangesFromCRDTDoc: defaultGetChangesFromCRDTDoc
   };
+  var defaultCollectionSyncConfig = {
+    applyChangesToCRDTDoc: () => {
+    },
+    getChangesFromCRDTDoc: () => ({}),
+    shouldSync: (_, objectId) => null === objectId
+  };
   function getRawValue(value) {
     if ("string" === typeof value) {
       return value;
@@ -2748,7 +2900,8 @@ var wp;
       },
       // The entity doesn't support selecting multiple records.
       // The property is maintained for backward compatibility.
-      plural: "__unstableBases"
+      plural: "__unstableBases",
+      supportsPagination: false
     },
     {
       label: (0, import_i18n.__)("Post Type"),
@@ -2757,7 +2910,8 @@ var wp;
       key: "slug",
       baseURL: "/wp/v2/types",
       baseURLParams: { context: "edit" },
-      plural: "postTypes"
+      plural: "postTypes",
+      supportsPagination: false
     },
     {
       name: "media",
@@ -2776,7 +2930,8 @@ var wp;
       baseURL: "/wp/v2/taxonomies",
       baseURLParams: { context: "edit" },
       plural: "taxonomies",
-      label: (0, import_i18n.__)("Taxonomy")
+      label: (0, import_i18n.__)("Taxonomy"),
+      supportsPagination: false
     },
     {
       name: "sidebar",
@@ -2785,7 +2940,8 @@ var wp;
       baseURLParams: { context: "edit" },
       plural: "sidebars",
       transientEdits: { blocks: true },
-      label: (0, import_i18n.__)("Widget areas")
+      label: (0, import_i18n.__)("Widget areas"),
+      supportsPagination: false
     },
     {
       name: "widget",
@@ -2794,7 +2950,8 @@ var wp;
       baseURLParams: { context: "edit" },
       plural: "widgets",
       transientEdits: { blocks: true },
-      label: (0, import_i18n.__)("Widgets")
+      label: (0, import_i18n.__)("Widgets"),
+      supportsPagination: false
     },
     {
       name: "widgetType",
@@ -2802,7 +2959,8 @@ var wp;
       baseURL: "/wp/v2/widget-types",
       baseURLParams: { context: "edit" },
       plural: "widgetTypes",
-      label: (0, import_i18n.__)("Widget types")
+      label: (0, import_i18n.__)("Widget types"),
+      supportsPagination: false
     },
     {
       label: (0, import_i18n.__)("User"),
@@ -2821,7 +2979,8 @@ var wp;
       baseURLParams: { context: "edit" },
       plural: "comments",
       label: (0, import_i18n.__)("Comment"),
-      supportsPagination: true
+      supportsPagination: true,
+      syncConfig: defaultCollectionSyncConfig
     },
     {
       name: "menu",
@@ -2849,7 +3008,8 @@ var wp;
       baseURLParams: { context: "edit" },
       plural: "menuLocations",
       label: (0, import_i18n.__)("Menu Location"),
-      key: "name"
+      key: "name",
+      supportsPagination: false
     },
     {
       label: (0, import_i18n.__)("Global Styles"),
@@ -2870,7 +3030,8 @@ var wp;
       baseURL: "/wp/v2/themes",
       baseURLParams: { context: "edit" },
       plural: "themes",
-      key: "stylesheet"
+      key: "stylesheet",
+      supportsPagination: false
     },
     {
       label: (0, import_i18n.__)("Plugins"),
@@ -2879,7 +3040,8 @@ var wp;
       baseURL: "/wp/v2/plugins",
       baseURLParams: { context: "edit" },
       plural: "plugins",
-      key: "plugin"
+      key: "plugin",
+      supportsPagination: false
     },
     {
       label: (0, import_i18n.__)("Status"),
@@ -2888,14 +3050,16 @@ var wp;
       baseURL: "/wp/v2/statuses",
       baseURLParams: { context: "edit" },
       plural: "statuses",
-      key: "slug"
+      key: "slug",
+      supportsPagination: false
     },
     {
       label: (0, import_i18n.__)("Registered Templates"),
       name: "registeredTemplate",
       kind: "root",
       baseURL: "/wp/v2/registered-templates",
-      key: "id"
+      key: "id",
+      supportsPagination: false
     },
     {
       label: (0, import_i18n.__)("Font Collections"),
@@ -2904,7 +3068,8 @@ var wp;
       baseURL: "/wp/v2/font-collections",
       baseURLParams: { context: "view" },
       plural: "fontCollections",
-      key: "slug"
+      key: "slug",
+      supportsPagination: true
     },
     {
       label: (0, import_i18n.__)("Icons"),
@@ -2913,15 +3078,10 @@ var wp;
       baseURL: "/wp/v2/icons",
       baseURLParams: { context: "view" },
       plural: "icons",
-      key: "name"
+      key: "name",
+      supportsPagination: false
     }
-  ].map((entity2) => {
-    const syncEnabledRootEntities = /* @__PURE__ */ new Set(["comment"]);
-    if (syncEnabledRootEntities.has(entity2.name)) {
-      entity2.syncConfig = defaultSyncConfig;
-    }
-    return entity2;
-  });
+  ];
   var deprecatedEntities = {
     root: {
       media: {
@@ -3093,6 +3253,7 @@ var wp;
       kind: "root",
       key: false,
       baseURL: "/wp/v2/settings",
+      supportsPagination: false,
       meta: {}
     };
     const site = await (0, import_api_fetch.default)({
@@ -3124,20 +3285,24 @@ var wp;
     const queryParts = get_query_parts_default(query);
     return queryParts.context;
   }
-  function getMergedItemIds(itemIds, nextItemIds, page, perPage) {
-    const receivedAllIds = page === 1 && perPage === -1;
-    if (receivedAllIds) {
+  function getMergedItemIds(itemIds = [], nextItemIds, { page = 1, offset, perPage = 10 } = {}) {
+    if (perPage === -1) {
       return nextItemIds;
     }
-    const nextItemIdsStartIndex = (page - 1) * perPage;
+    const nextItemIdsStartIndex = offset ?? (page - 1) * perPage;
+    const nextItemIdsRange = Math.max(perPage, nextItemIds.length);
     const size = Math.max(
-      itemIds?.length ?? 0,
+      itemIds.length,
       nextItemIdsStartIndex + nextItemIds.length
     );
     const mergedItemIds = new Array(size);
     for (let i = 0; i < size; i++) {
-      const isInNextItemsRange = i >= nextItemIdsStartIndex && i < nextItemIdsStartIndex + perPage;
-      mergedItemIds[i] = isInNextItemsRange ? nextItemIds[i - nextItemIdsStartIndex] : itemIds?.[i];
+      const isInNextItemsRange = i >= nextItemIdsStartIndex && i < nextItemIdsStartIndex + nextItemIdsRange;
+      if (isInNextItemsRange) {
+        mergedItemIds[i] = nextItemIds[i - nextItemIdsStartIndex];
+      } else {
+        mergedItemIds[i] = itemIds[i];
+      }
     }
     return mergedItemIds;
   }
@@ -3158,18 +3323,20 @@ var wp;
       case "RECEIVE_ITEMS": {
         const context = getContextFromAction(action);
         const key = action.key || DEFAULT_ENTITY_KEY;
+        const itemsList = Array.isArray(action.items) ? action.items : [action.items];
         return {
           ...state,
           [context]: {
             ...state[context],
-            ...action.items.reduce((accumulator, value) => {
-              const itemId = value?.[key];
-              accumulator[itemId] = conservativeMapItem(
-                state?.[context]?.[itemId],
-                value
-              );
-              return accumulator;
-            }, {})
+            ...Object.fromEntries(
+              itemsList.map((item) => [
+                item?.[key],
+                conservativeMapItem(
+                  state?.[context]?.[item?.[key]],
+                  item
+                )
+              ])
+            )
           }
         };
       }
@@ -3188,13 +3355,14 @@ var wp;
       case "RECEIVE_ITEMS": {
         const context = getContextFromAction(action);
         const { query, key = DEFAULT_ENTITY_KEY } = action;
+        const itemsList = Array.isArray(action.items) ? action.items : [action.items];
         const queryParts = query ? get_query_parts_default(query) : {};
         const isCompleteQuery = !query || !Array.isArray(queryParts.fields);
         return {
           ...state,
           [context]: {
             ...state[context],
-            ...action.items.reduce((result, item) => {
+            ...itemsList.reduce((result, item) => {
               const itemId = item?.[key];
               result[itemId] = state?.[context]?.[itemId] || isCompleteQuery;
               return result;
@@ -3231,16 +3399,22 @@ var wp;
     // reducer tracks only a single query object.
     on_sub_key_default("stableKey")
   ])((state = {}, action) => {
-    const { type, page, perPage, key = DEFAULT_ENTITY_KEY } = action;
-    if (type !== "RECEIVE_ITEMS") {
+    if (action.type !== "RECEIVE_ITEMS") {
       return state;
     }
+    if (!Array.isArray(action.items)) {
+      return state;
+    }
+    const key = action.key ?? DEFAULT_ENTITY_KEY;
     return {
       itemIds: getMergedItemIds(
-        state?.itemIds || [],
+        state.itemIds,
         action.items.map((item) => item?.[key]).filter(Boolean),
-        page,
-        perPage
+        {
+          page: action.page,
+          offset: action.offset,
+          perPage: action.perPage
+        }
       ),
       meta: action.meta
     };
@@ -3398,7 +3572,8 @@ var wp;
                 return state;
               }
               const nextState = { ...state };
-              for (const record of action.items) {
+              const itemsList = Array.isArray(action.items) ? action.items : [action.items];
+              for (const record of itemsList) {
                 const recordId = record?.[action.key];
                 const edits = nextState[recordId];
                 if (!edits) {
@@ -3706,6 +3881,16 @@ var wp;
     }
     return state;
   }
+  function viewConfigs(state = {}, action) {
+    switch (action.type) {
+      case "RECEIVE_VIEW_CONFIG":
+        return {
+          ...state,
+          [`${action.kind}/${action.name}`]: action.config
+        };
+    }
+    return state;
+  }
   var reducer_default2 = (0, import_data8.combineReducers)({
     users,
     currentTheme,
@@ -3729,7 +3914,8 @@ var wp;
     editorSettings,
     editorAssets,
     syncConnectionStatuses,
-    collaborationSupported
+    collaborationSupported,
+    viewConfigs
   });
 
   // packages/core-data/build-module/selectors.mjs
@@ -3781,6 +3967,7 @@ var wp;
     hasEntityRecords: () => hasEntityRecords,
     hasFetchedAutosaves: () => hasFetchedAutosaves,
     hasRedo: () => hasRedo,
+    hasRevision: () => hasRevision,
     hasUndo: () => hasUndo,
     isAutosavingEntityRecord: () => isAutosavingEntityRecord,
     isDeletingEntityRecord: () => isDeletingEntityRecord,
@@ -3806,6 +3993,7 @@ var wp;
     getRegisteredPostMeta: () => getRegisteredPostMeta,
     getTemplateId: () => getTemplateId,
     getUndoManager: () => getUndoManager,
+    getViewConfig: () => getViewConfig,
     isCollaborationSupported: () => isCollaborationSupported
   });
   var import_data9 = __toESM(require_data(), 1);
@@ -3840,6 +4028,7 @@ var wp;
   }
 
   // packages/core-data/build-module/private-selectors.mjs
+  var EMPTY_OBJECT = {};
   function getUndoManager(state) {
     return getSyncManager()?.undoManager ?? state.undoManager;
   }
@@ -3909,10 +4098,16 @@ var wp;
         ).getDefaultTemplateId({
           slug: "front-page"
         });
-        if (!frontPageTemplateId) {
-          return null;
+        if (frontPageTemplateId) {
+          return {
+            postType: "wp_template",
+            postId: frontPageTemplateId
+          };
         }
-        return { postType: "wp_template", postId: frontPageTemplateId };
+        if (frontPageTemplateId === "") {
+          return EMPTY_OBJECT;
+        }
+        return null;
       },
       (state) => [
         // Even though getDefaultTemplateId.shouldInvalidate returns true when root/site changes,
@@ -3997,9 +4192,17 @@ var wp;
   function isCollaborationSupported(state) {
     return state.collaborationSupported;
   }
+  function getViewConfig(state, kind, name) {
+    return state.viewConfigs?.[`${kind}/${name}`] ?? {
+      default_view: void 0,
+      default_layouts: void 0,
+      view_list: void 0,
+      form: void 0
+    };
+  }
 
   // packages/core-data/build-module/selectors.mjs
-  var EMPTY_OBJECT = {};
+  var EMPTY_OBJECT2 = {};
   var isRequestingEmbedPreview = (0, import_data10.createRegistrySelector)(
     (select5) => (state, url) => {
       return select5(STORE_NAME).isResolving("getEmbedPreview", [
@@ -4141,14 +4344,22 @@ var wp;
         name,
         key
       );
-      return record && Object.keys(record).reduce((accumulator, _key) => {
-        if (isRawAttribute(getEntityConfig(state, kind, name), _key)) {
-          accumulator[_key] = record[_key]?.raw !== void 0 ? record[_key]?.raw : record[_key];
-        } else {
-          accumulator[_key] = record[_key];
-        }
-        return accumulator;
-      }, {});
+      const config = getEntityConfig(state, kind, name);
+      if (!record || !config?.rawAttributes?.length) {
+        return record;
+      }
+      return Object.fromEntries(
+        Object.keys(record).map((_key) => {
+          if (config.rawAttributes.includes(_key)) {
+            const rawValue = record[_key]?.raw;
+            return [
+              _key,
+              rawValue !== void 0 ? rawValue : record[_key]
+            ];
+          }
+          return [_key, record[_key]];
+        })
+      );
     },
     (state, kind, name, recordId, query) => {
       const context = query?.context ?? "default";
@@ -4169,7 +4380,9 @@ var wp;
     if (!queriedState) {
       return null;
     }
-    return getQueriedItems(queriedState, query);
+    return getQueriedItems(queriedState, query, {
+      supportsPagination: !!getEntityConfig(state, kind, name)?.supportsPagination
+    });
   });
   var getEntityRecordsTotalItems = (state, kind, name, query) => {
     logEntityDeprecation(kind, name, "getEntityRecordsTotalItems");
@@ -4185,7 +4398,7 @@ var wp;
     if (!queriedState) {
       return null;
     }
-    if (query?.per_page === -1) {
+    if (!getEntityConfig(state, kind, name)?.supportsPagination || query?.per_page === -1) {
       return 1;
     }
     const totalItems = getQueriedTotalItems(queriedState, query);
@@ -4375,7 +4588,7 @@ var wp;
     return state.currentGlobalStylesId;
   }
   function getThemeSupports(state) {
-    return getCurrentTheme(state)?.theme_supports ?? EMPTY_OBJECT;
+    return getCurrentTheme(state)?.theme_supports ?? EMPTY_OBJECT2;
   }
   function getEmbedPreview(state, url) {
     return state.embedPreviews[url];
@@ -4474,6 +4687,33 @@ var wp;
     }
     return getQueriedItems(queriedStateRevisions, query);
   };
+  function hasRevision(state, kind, name, recordKey, revisionKey, query) {
+    const queriedState = state.entities.records?.[kind]?.[name]?.revisions?.[recordKey];
+    if (!queriedState) {
+      return false;
+    }
+    const context = query?.context ?? "default";
+    if (!query || !query._fields) {
+      return !!queriedState.itemIsComplete[context]?.[revisionKey];
+    }
+    const item = queriedState.items[context]?.[revisionKey];
+    if (!item) {
+      return false;
+    }
+    const fields = get_normalized_comma_separable_default(query._fields) ?? [];
+    for (let i = 0; i < fields.length; i++) {
+      const path = fields[i].split(".");
+      let value = item;
+      for (let p = 0; p < path.length; p++) {
+        const part = path[p];
+        if (!value || !Object.hasOwn(value, part)) {
+          return false;
+        }
+        value = value[part];
+      }
+    }
+    return true;
+  }
   var getRevision = (0, import_data10.createSelector)(
     (state, kind, name, recordKey, revisionKey, query) => {
       logEntityDeprecation(kind, name, "getRevision");
@@ -4747,6 +4987,9 @@ var wp;
   };
 
   // packages/core-data/build-module/actions.mjs
+  function addTitleToAutoDraft(record) {
+    return record.status === "auto-draft" ? { ...record, title: "" } : record;
+  }
   function receiveUserQuery(queryID, users2) {
     return {
       type: "RECEIVE_USER_QUERY",
@@ -4768,9 +5011,7 @@ var wp;
   }
   function receiveEntityRecords(kind, name, records, query = void 0, invalidateCache = false, edits = void 0, meta = void 0) {
     if (kind === "postType") {
-      records = (Array.isArray(records) ? records : [records]).map(
-        (record) => record.status === "auto-draft" ? { ...record, title: "" } : record
-      );
+      records = Array.isArray(records) ? records.map(addTitleToAutoDraft) : addTitleToAutoDraft(records);
     }
     let action;
     if (query) {
@@ -5080,27 +5321,16 @@ var wp;
         const path = `${baseURL}${recordId ? "/" + recordId : ""}`;
         const persistedRecord = !isNewRecord ? select5.getRawEntityRecord(kind, name, recordId) : {};
         if (isAutosave) {
-          const currentUser2 = select5.getCurrentUser();
-          const currentUserId = currentUser2 ? currentUser2.id : void 0;
-          const autosavePost = await resolveSelect2.getAutosave(
-            persistedRecord.type,
-            persistedRecord.id,
-            currentUserId
-          );
-          let data = {
-            ...persistedRecord,
-            ...autosavePost,
-            ...record
-          };
-          data = Object.keys(data).reduce(
+          const merged = { ...persistedRecord, ...record };
+          const data = [
+            "title",
+            "excerpt",
+            "content",
+            "meta"
+          ].reduce(
             (acc, key) => {
-              if ([
-                "title",
-                "excerpt",
-                "content",
-                "meta"
-              ].includes(key)) {
-                acc[key] = data[key];
+              if (key in merged) {
+                acc[key] = merged[key];
               }
               return acc;
             },
@@ -5109,7 +5339,7 @@ var wp;
               // It's very important to let the user explicitly save this change,
               // because it can lead to unexpected results. An example would be to
               // have a draft post and change the status to publish.
-              status: data.status === "auto-draft" ? "draft" : void 0
+              status: merged.status === "auto-draft" ? "draft" : void 0
             }
           );
           updatedRecord = await __unstableFetch({
@@ -5125,9 +5355,12 @@ var wp;
             };
             newRecord = Object.keys(newRecord).reduce(
               (acc, key) => {
-                if (["title", "excerpt", "content"].includes(
-                  key
-                )) {
+                if ([
+                  "title",
+                  "excerpt",
+                  "content",
+                  "meta"
+                ].includes(key)) {
                   acc[key] = newRecord[key];
                 } else if (key === "status") {
                   acc[key] = persistedRecord.status === "auto-draft" && newRecord.status === "draft" ? newRecord.status : persistedRecord.status;
@@ -5340,11 +5573,11 @@ var wp;
     const entityConfig = configs.find(
       (config) => config.kind === kind && config.name === name
     );
-    const key = entityConfig && entityConfig?.revisionKey ? entityConfig.revisionKey : DEFAULT_ENTITY_KEY;
+    const key = entityConfig?.revisionKey ?? DEFAULT_ENTITY_KEY;
     dispatch3({
       type: "RECEIVE_ITEM_REVISIONS",
       key,
-      items: Array.isArray(records) ? records : [records],
+      items: records,
       recordKey,
       meta,
       query,
@@ -5378,6 +5611,7 @@ var wp;
     receiveEditorAssets: () => receiveEditorAssets,
     receiveEditorSettings: () => receiveEditorSettings,
     receiveRegisteredPostMeta: () => receiveRegisteredPostMeta,
+    receiveViewConfig: () => receiveViewConfig,
     setCollaborationSupported: () => setCollaborationSupported
   });
   var import_api_fetch4 = __toESM(require_api_fetch(), 1);
@@ -5429,7 +5663,7 @@ var wp;
           dispatch3.receiveEntityRecords(
             kind,
             name,
-            [newRecord],
+            newRecord,
             void 0,
             true,
             void 0,
@@ -5471,6 +5705,14 @@ var wp;
   var setCollaborationSupported = (supported) => ({ dispatch: dispatch3 }) => {
     dispatch3({ type: "SET_COLLABORATION_SUPPORTED", supported });
   };
+  function receiveViewConfig(kind, name, config) {
+    return {
+      type: "RECEIVE_VIEW_CONFIG",
+      kind,
+      name,
+      config
+    };
+  }
 
   // packages/core-data/build-module/resolvers.mjs
   var resolvers_exports = {};
@@ -5504,7 +5746,8 @@ var wp;
     getRevision: () => getRevision2,
     getRevisions: () => getRevisions2,
     getThemeSupports: () => getThemeSupports2,
-    getUserPatternCategories: () => getUserPatternCategories2
+    getUserPatternCategories: () => getUserPatternCategories2,
+    getViewConfig: () => getViewConfig2
   });
   var import_url6 = __toESM(require_url(), 1);
   var import_html_entities2 = __toESM(require_html_entities(), 1);
@@ -5913,16 +6156,12 @@ var wp;
     const rawQuery = { ...query };
     const key = entityConfig.key || DEFAULT_ENTITY_KEY;
     function getResolutionsArgs(records, recordsQuery) {
-      const queryArgs = Object.fromEntries(
-        Object.entries(recordsQuery).filter(([k, v]) => {
-          return ["context", "_fields"].includes(k) && !!v;
-        })
-      );
+      const normalizedQuery = normalizeQueryForResolution(recordsQuery);
       return records.filter((record) => record?.[key]).map((record) => [
         kind,
         name,
         record[key],
-        Object.keys(queryArgs).length > 0 ? queryArgs : void 0
+        normalizedQuery
       ]);
     }
     try {
@@ -6086,7 +6325,7 @@ var wp;
         );
         dispatch3.__unstableReleaseStoreLock(lock2);
       });
-    } catch (e) {
+    } catch {
       dispatch3.__unstableReleaseStoreLock(lock2);
     }
   };
@@ -6110,7 +6349,7 @@ var wp;
         path: (0, import_url6.addQueryArgs)("/oembed/1.0/proxy", { url })
       });
       dispatch3.receiveEmbedPreview(url, embedProxyResponse);
-    } catch (error) {
+    } catch {
       dispatch3.receiveEmbedPreview(url, false);
     }
   };
@@ -6157,24 +6396,23 @@ var wp;
         method: "OPTIONS",
         parse: false
       });
-    } catch (error) {
+    } catch {
       return;
     }
     const permissions = getUserPermissionsFromAllowHeader(
       response.headers?.get("allow")
     );
-    registry.batch(() => {
-      for (const action of ALLOWED_RESOURCE_ACTIONS) {
-        const key = getUserPermissionCacheKey(action, resource, id);
-        dispatch3.receiveUserPermission(key, permissions[action]);
-        if (action !== requestedAction) {
-          dispatch3.finishResolution("canUser", [
-            action,
-            resource,
-            id
-          ]);
-        }
+    const receiveUserPermissionArgs = {};
+    const canUserResolutionsArgs = [];
+    for (const action of ALLOWED_RESOURCE_ACTIONS) {
+      receiveUserPermissionArgs[getUserPermissionCacheKey(action, resource, id)] = permissions[action];
+      if (action !== requestedAction) {
+        canUserResolutionsArgs.push([action, resource, id]);
       }
+    }
+    registry.batch(() => {
+      dispatch3.receiveUserPermissions(receiveUserPermissionArgs);
+      dispatch3.finishResolutions("canUser", canUserResolutionsArgs);
     });
   };
   var canUserEditEntityRecord2 = (kind, name, recordId) => async ({ dispatch: dispatch3 }) => {
@@ -6332,20 +6570,22 @@ var wp;
     });
     await resolveSelect2.getEntitiesConfig("postType");
     const id = window?.__experimentalTemplateActivate ? template?.wp_id || template?.id : template?.id;
-    if (id) {
-      template.id = id;
-      registry.batch(() => {
-        dispatch3.receiveDefaultTemplateId(query, id);
-        dispatch3.receiveEntityRecords("postType", template.type, [
+    registry.batch(() => {
+      dispatch3.receiveDefaultTemplateId(query, id || "");
+      if (id) {
+        template.id = id;
+        dispatch3.receiveEntityRecords(
+          "postType",
+          template.type,
           template
-        ]);
+        );
         dispatch3.finishResolution("getEntityRecord", [
           "postType",
           template.type,
           id
         ]);
-      });
-    }
+      }
+    });
   };
   getDefaultTemplateId2.shouldInvalidate = (action) => {
     return action.type === "RECEIVE_ITEMS" && action.kind === "root" && action.name === "site";
@@ -6358,76 +6598,86 @@ var wp;
     if (!entityConfig) {
       return;
     }
-    if (query._fields) {
-      query = {
-        ...query,
-        _fields: [
-          .../* @__PURE__ */ new Set([
-            ...get_normalized_comma_separable_default(query._fields) || [],
-            entityConfig.revisionKey || DEFAULT_ENTITY_KEY
-          ])
-        ].join()
-      };
-    }
-    const path = (0, import_url6.addQueryArgs)(
-      entityConfig.getRevisionsUrl(recordKey),
-      query
+    const rawQuery = { ...query };
+    const lock2 = await dispatch3.__unstableAcquireStoreLock(
+      STORE_NAME,
+      ["entities", "records", kind, name, recordKey, "revisions"],
+      { exclusive: false }
     );
-    let records, response;
-    const meta = {};
-    const isPaginated = entityConfig.supportsPagination && query.per_page !== -1;
     try {
-      response = await (0, import_api_fetch8.default)({ path, parse: !isPaginated });
-    } catch (error) {
-      return;
-    }
-    if (response) {
-      if (isPaginated) {
-        records = Object.values(await response.json());
-        meta.totalItems = parseInt(
-          response.headers.get("X-WP-Total")
-        );
-      } else {
-        records = Object.values(response);
-      }
       if (query._fields) {
-        records = records.map((record) => {
-          query._fields.split(",").forEach((field) => {
-            if (!record.hasOwnProperty(field)) {
-              record[field] = void 0;
-            }
-          });
-          return record;
-        });
+        query = {
+          ...query,
+          _fields: [
+            .../* @__PURE__ */ new Set([
+              ...get_normalized_comma_separable_default(query._fields) || [],
+              entityConfig.revisionKey || DEFAULT_ENTITY_KEY
+            ])
+          ].join()
+        };
       }
-      registry.batch(() => {
-        dispatch3.receiveRevisions(
-          kind,
-          name,
-          recordKey,
-          records,
-          query,
-          false,
-          meta
-        );
-        if (!query?._fields && !query.context) {
+      const path = (0, import_url6.addQueryArgs)(
+        entityConfig.getRevisionsUrl(recordKey),
+        query
+      );
+      let records, response;
+      const meta = {};
+      const isPaginated = entityConfig.supportsPagination && query.per_page !== -1;
+      try {
+        response = await (0, import_api_fetch8.default)({ path, parse: !isPaginated });
+      } catch {
+        return;
+      }
+      if (response) {
+        if (isPaginated) {
+          records = Object.values(await response.json());
+          meta.totalItems = parseInt(
+            response.headers.get("X-WP-Total")
+          );
+        } else {
+          records = Object.values(response);
+        }
+        if (query._fields) {
+          records = records.map((record) => {
+            query._fields.split(",").forEach((field) => {
+              if (!record.hasOwnProperty(field)) {
+                record[field] = void 0;
+              }
+            });
+            return record;
+          });
+        }
+        registry.batch(() => {
+          dispatch3.receiveRevisions(
+            kind,
+            name,
+            recordKey,
+            records,
+            query,
+            false,
+            meta
+          );
           const key = entityConfig.revisionKey || DEFAULT_ENTITY_KEY;
+          const normalizedQuery = normalizeQueryForResolution(rawQuery);
           const resolutionsArgs = records.filter((record) => record[key]).map((record) => [
             kind,
             name,
             recordKey,
-            record[key]
+            record[key],
+            normalizedQuery
           ]);
           dispatch3.finishResolutions(
             "getRevision",
             resolutionsArgs
           );
-        }
-      });
+        });
+      }
+    } finally {
+      dispatch3.__unstableReleaseStoreLock(lock2);
     }
   };
   getRevisions2.shouldInvalidate = (action, kind, name, recordKey) => action.type === "SAVE_ENTITY_RECORD_FINISH" && name === action.name && kind === action.kind && !action.error && recordKey === action.recordId;
-  var getRevision2 = (kind, name, recordKey, revisionKey, query) => async ({ dispatch: dispatch3, resolveSelect: resolveSelect2 }) => {
+  var getRevision2 = (kind, name, recordKey, revisionKey, query) => async ({ select: select5, dispatch: dispatch3, resolveSelect: resolveSelect2 }) => {
     const configs = await resolveSelect2.getEntitiesConfig(kind);
     const entityConfig = configs.find(
       (config) => config.name === name && config.kind === kind
@@ -6446,18 +6696,44 @@ var wp;
         ].join()
       };
     }
-    const path = (0, import_url6.addQueryArgs)(
-      entityConfig.getRevisionsUrl(recordKey, revisionKey),
-      query
+    const lock2 = await dispatch3.__unstableAcquireStoreLock(
+      STORE_NAME,
+      [
+        "entities",
+        "records",
+        kind,
+        name,
+        recordKey,
+        "revisions",
+        revisionKey
+      ],
+      { exclusive: false }
     );
-    let record;
     try {
-      record = await (0, import_api_fetch8.default)({ path });
-    } catch (error) {
-      return;
-    }
-    if (record) {
-      dispatch3.receiveRevisions(kind, name, recordKey, record, query);
+      if (select5.hasRevision(kind, name, recordKey, revisionKey, query)) {
+        return;
+      }
+      const path = (0, import_url6.addQueryArgs)(
+        entityConfig.getRevisionsUrl(recordKey, revisionKey),
+        query
+      );
+      let record;
+      try {
+        record = await (0, import_api_fetch8.default)({ path });
+      } catch {
+        return;
+      }
+      if (record) {
+        dispatch3.receiveRevisions(
+          kind,
+          name,
+          recordKey,
+          record,
+          query
+        );
+      }
+    } finally {
+      dispatch3.__unstableReleaseStoreLock(lock2);
     }
   };
   var getRegisteredPostMeta2 = (postType) => async ({ dispatch: dispatch3, resolveSelect: resolveSelect2 }) => {
@@ -6471,7 +6747,7 @@ var wp;
         path: `${restNamespace}/${restBase}/?context=edit`,
         method: "OPTIONS"
       });
-    } catch (error) {
+    } catch {
       return;
     }
     if (options) {
@@ -6508,6 +6784,12 @@ var wp;
       path: "/wp-block-editor/v1/assets"
     });
     dispatch3.receiveEditorAssets(assets);
+  };
+  var getViewConfig2 = (kind, name) => async ({ dispatch: dispatch3 }) => {
+    const config = await (0, import_api_fetch8.default)({
+      path: (0, import_url6.addQueryArgs)("/wp/v2/view-config", { kind, name })
+    });
+    dispatch3.receiveViewConfig(kind, name, config);
   };
 
   // packages/core-data/build-module/locks/utils.mjs
@@ -6799,9 +7081,6 @@ var wp;
     return memoized;
   }
 
-  // packages/core-data/build-module/hooks/memoize.mjs
-  var memoize_default = memize;
-
   // packages/core-data/build-module/hooks/constants.mjs
   var Status = /* @__PURE__ */ ((Status2) => {
     Status2["Idle"] = "IDLE";
@@ -6825,7 +7104,7 @@ var wp;
       return mapQuerySelect(resolve, registry);
     }, deps);
   }
-  var enrichSelectors = memoize_default(((selectors) => {
+  var enrichSelectors = memize(((selectors) => {
     const resolvers = {};
     for (const selectorName in selectors) {
       if (META_SELECTORS.includes(selectorName)) {
@@ -6867,7 +7146,7 @@ var wp;
   }));
 
   // packages/core-data/build-module/hooks/use-entity-record.mjs
-  var EMPTY_OBJECT2 = {};
+  var EMPTY_OBJECT3 = {};
   function useEntityRecord(kind, name, recordId, options = { enabled: true }) {
     const { editEntityRecord: editEntityRecord2, saveEditedEntityRecord: saveEditedEntityRecord2 } = (0, import_data12.useDispatch)(store);
     const mutations = (0, import_element3.useMemo)(
@@ -6884,9 +7163,9 @@ var wp;
       (select5) => {
         if (!options.enabled) {
           return {
-            editedRecord: EMPTY_OBJECT2,
+            editedRecord: EMPTY_OBJECT3,
             hasEdits: false,
-            edits: EMPTY_OBJECT2
+            edits: EMPTY_OBJECT3
           };
         }
         return {
@@ -6929,7 +7208,7 @@ var wp;
       ...mutations
     };
   }
-  function __experimentalUseEntityRecord(kind, name, recordId, options) {
+  function useDeprecatedEntityRecord(kind, name, recordId, options) {
     (0, import_deprecated4.default)(`wp.data.__experimentalUseEntityRecord`, {
       alternative: "wp.data.useEntityRecord",
       since: "6.1"
@@ -6987,7 +7266,7 @@ var wp;
       ...rest
     };
   }
-  function __experimentalUseEntityRecords(kind, name, queryArgs, options) {
+  function useDeprecatedEntityRecords(kind, name, queryArgs, options) {
     (0, import_deprecated5.default)(`wp.data.__experimentalUseEntityRecords`, {
       alternative: "wp.data.useEntityRecords",
       since: "6.1"
@@ -7107,7 +7386,7 @@ var wp;
     );
   }
   var use_resource_permissions_default = useResourcePermissions;
-  function __experimentalUseResourcePermissions(resource, id) {
+  function useDeprecatedResourcePermissions(resource, id) {
     (0, import_deprecated6.default)(`wp.data.__experimentalUseResourcePermissions`, {
       alternative: "wp.data.useResourcePermissions",
       since: "6.1"
@@ -7379,7 +7658,7 @@ var wp;
             (r) => r[revKey] === revisionId
           );
           return revision ? {
-            value: revision[prop],
+            value: revision[prop]?.raw ?? revision[prop],
             fullValue: revision[prop]
           } : {};
         }

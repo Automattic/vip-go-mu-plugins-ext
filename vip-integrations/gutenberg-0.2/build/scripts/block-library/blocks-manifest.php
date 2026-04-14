@@ -761,9 +761,6 @@ return array(
 			),
 			'gradient' => array(
 				'type' => 'string'
-			),
-			'width' => array(
-				'type' => 'number'
 			)
 		),
 		'supports' => array(
@@ -777,6 +774,15 @@ return array(
 				'__experimentalDefaultControls' => array(
 					'background' => true,
 					'text' => true
+				)
+			),
+			'dimensions' => array(
+				'width' => true,
+				'__experimentalSkipSerialization' => array(
+					'width'
+				),
+				'__experimentalDefaultControls' => array(
+					'width' => true
 				)
 			),
 			'typography' => array(
@@ -853,6 +859,10 @@ return array(
 			'root' => '.wp-block-button .wp-block-button__link',
 			'typography' => array(
 				'writingMode' => '.wp-block-button'
+			),
+			'dimensions' => array(
+				'root' => '.wp-block-button',
+				'width' => '.wp-block-button'
 			)
 		)
 	),
@@ -3122,8 +3132,10 @@ return array(
 			'background' => array(
 				'backgroundImage' => true,
 				'backgroundSize' => true,
+				'gradient' => true,
 				'__experimentalDefaultControls' => array(
-					'backgroundImage' => true
+					'backgroundImage' => true,
+					'gradient' => true
 				)
 			),
 			'color' => array(
@@ -3939,6 +3951,7 @@ return array(
 		),
 		'supports' => array(
 			'anchor' => true,
+			'html' => false,
 			'className' => false,
 			'splitting' => true,
 			'__experimentalBorder' => array(
@@ -4604,6 +4617,11 @@ return array(
 			'renaming' => false,
 			'interactivity' => array(
 				'clientNavigation' => true
+			)
+		),
+		'selectors' => array(
+			'states' => array(
+				'@current' => '.wp-block-navigation .current-menu-item'
 			)
 		),
 		'editorStyle' => 'wp-block-navigation-link-editor',
@@ -5756,9 +5774,6 @@ return array(
 				'type' => 'string',
 				'role' => 'content'
 			),
-			'textAlign' => array(
-				'type' => 'string'
-			),
 			'format' => array(
 				'type' => 'string'
 			),
@@ -5795,6 +5810,7 @@ return array(
 			'typography' => array(
 				'fontSize' => true,
 				'lineHeight' => true,
+				'textAlign' => true,
 				'__experimentalFontFamily' => true,
 				'__experimentalFontWeight' => true,
 				'__experimentalFontStyle' => true,
@@ -5831,9 +5847,6 @@ return array(
 		'description' => 'Display the excerpt.',
 		'textdomain' => 'default',
 		'attributes' => array(
-			'textAlign' => array(
-				'type' => 'string'
-			),
 			'moreText' => array(
 				'type' => 'string',
 				'role' => 'content'
@@ -5874,6 +5887,7 @@ return array(
 			'typography' => array(
 				'fontSize' => true,
 				'lineHeight' => true,
+				'textAlign' => true,
 				'textColumns' => true,
 				'__experimentalFontFamily' => true,
 				'__experimentalFontWeight' => true,
@@ -6032,9 +6046,6 @@ return array(
 		'description' => 'Displays the next or previous post link that is adjacent to the current post.',
 		'textdomain' => 'default',
 		'attributes' => array(
-			'textAlign' => array(
-				'type' => 'string'
-			),
 			'type' => array(
 				'type' => 'string',
 				'default' => 'next'
@@ -6073,6 +6084,7 @@ return array(
 			'typography' => array(
 				'fontSize' => true,
 				'lineHeight' => true,
+				'textAlign' => true,
 				'__experimentalFontFamily' => true,
 				'__experimentalFontWeight' => true,
 				'__experimentalFontStyle' => true,
@@ -6330,9 +6342,6 @@ return array(
 			'queryId'
 		),
 		'attributes' => array(
-			'textAlign' => array(
-				'type' => 'string'
-			),
 			'level' => array(
 				'type' => 'number',
 				'default' => 2
@@ -6355,6 +6364,9 @@ return array(
 				'type' => 'string',
 				'default' => '_self',
 				'role' => 'content'
+			),
+			'placeholder' => array(
+				'type' => 'string'
 			)
 		),
 		'example' => array(
@@ -6383,6 +6395,7 @@ return array(
 			'typography' => array(
 				'fontSize' => true,
 				'lineHeight' => true,
+				'textAlign' => true,
 				'__experimentalFontFamily' => true,
 				'__experimentalFontWeight' => true,
 				'__experimentalFontStyle' => true,
@@ -6931,9 +6944,6 @@ return array(
 			'type' => array(
 				'type' => 'string'
 			),
-			'textAlign' => array(
-				'type' => 'string'
-			),
 			'level' => array(
 				'type' => 'number',
 				'default' => 1
@@ -6979,6 +6989,7 @@ return array(
 			'typography' => array(
 				'fontSize' => true,
 				'lineHeight' => true,
+				'textAlign' => true,
 				'__experimentalFontFamily' => true,
 				'__experimentalFontStyle' => true,
 				'__experimentalFontWeight' => true,
@@ -7392,10 +7403,6 @@ return array(
 				'default' => array(
 					
 				)
-			),
-			'isSearchFieldHidden' => array(
-				'type' => 'boolean',
-				'default' => false
 			)
 		),
 		'supports' => array(
@@ -7446,7 +7453,11 @@ return array(
 			'html' => false
 		),
 		'editorStyle' => 'wp-block-search-editor',
-		'style' => 'wp-block-search'
+		'style' => 'wp-block-search',
+		'selectors' => array(
+			'color' => '.wp-block-search .wp-block-search__button, .wp-block-search.wp-block-search__no-button .wp-block-search__input',
+			'border' => '.wp-block-search.wp-block-search__button-outside .wp-block-search__input, .wp-block-search.wp-block-search__button-outside .wp-block-search__button, .wp-block-search.wp-block-search__no-button .wp-block-search__input, .wp-block-search.wp-block-search__button-only .wp-block-search__input, .wp-block-search.wp-block-search__button-only .wp-block-search__button, .wp-block-search.wp-block-search__button-inside .wp-block-search__inside-wrapper'
+		)
 	),
 	'separator' => array(
 		'$schema' => 'https://schemas.wp.org/trunk/block.json',
@@ -7632,9 +7643,6 @@ return array(
 		),
 		'textdomain' => 'default',
 		'attributes' => array(
-			'textAlign' => array(
-				'type' => 'string'
-			),
 			'level' => array(
 				'type' => 'number',
 				'default' => 0
@@ -7655,7 +7663,11 @@ return array(
 		'example' => array(
 			'viewportWidth' => 350,
 			'attributes' => array(
-				'textAlign' => 'center'
+				'style' => array(
+					'typography' => array(
+						'textAlign' => 'center'
+					)
+				)
 			)
 		),
 		'supports' => array(
@@ -7684,6 +7696,7 @@ return array(
 			'typography' => array(
 				'fontSize' => true,
 				'lineHeight' => true,
+				'textAlign' => true,
 				'__experimentalFontFamily' => true,
 				'__experimentalTextTransform' => true,
 				'__experimentalTextDecoration' => true,
@@ -7733,9 +7746,6 @@ return array(
 					6
 				)
 			),
-			'textAlign' => array(
-				'type' => 'string'
-			),
 			'isLink' => array(
 				'type' => 'boolean',
 				'default' => true,
@@ -7777,6 +7787,7 @@ return array(
 			'typography' => array(
 				'fontSize' => true,
 				'lineHeight' => true,
+				'textAlign' => true,
 				'__experimentalFontFamily' => true,
 				'__experimentalTextTransform' => true,
 				'__experimentalTextDecoration' => true,
@@ -8555,10 +8566,7 @@ return array(
 			'core/tabs-menu-item'
 		),
 		'usesContext' => array(
-			'core/tabs-list',
-			'core/tabs-id',
-			'core/tabs-activeTabIndex',
-			'core/tabs-editorActiveTabIndex'
+			'core/tabs-list'
 		),
 		'attributes' => array(
 			
@@ -8623,7 +8631,7 @@ return array(
 		'apiVersion' => 3,
 		'name' => 'core/tabs-menu-item',
 		'title' => 'Tab Menu Item',
-		'description' => 'A single tab button in the tabs menu. Used as a template for styling all tab buttons.',
+		'description' => 'A single tab button in the tabs menu.',
 		'version' => '1.0.0',
 		'category' => 'design',
 		'textdomain' => 'default',
@@ -8631,38 +8639,17 @@ return array(
 			'core/tabs-menu'
 		),
 		'usesContext' => array(
-			'core/tabs-menu-item-index',
-			'core/tabs-menu-item-id',
-			'core/tabs-menu-item-label',
-			'core/tabs-menu-item-clientId',
 			'core/tabs-list',
 			'core/tabs-activeTabIndex',
-			'core/tabs-editorActiveTabIndex'
+			'core/tabs-editorActiveTabIndex',
+			'core/tabs-menu-item-index',
+			'core/tabs-menu-item-id',
+			'core/tabs-menu-item-label'
 		),
 		'attributes' => array(
-			'activeBackgroundColor' => array(
-				'type' => 'string'
-			),
-			'customActiveBackgroundColor' => array(
-				'type' => 'string'
-			),
-			'activeTextColor' => array(
-				'type' => 'string'
-			),
-			'customActiveTextColor' => array(
-				'type' => 'string'
-			),
-			'hoverBackgroundColor' => array(
-				'type' => 'string'
-			),
-			'customHoverBackgroundColor' => array(
-				'type' => 'string'
-			),
-			'hoverTextColor' => array(
-				'type' => 'string'
-			),
-			'customHoverTextColor' => array(
-				'type' => 'string'
+			'anchor' => array(
+				'type' => 'string',
+				'default' => ''
 			)
 		),
 		'supports' => array(
@@ -8677,7 +8664,6 @@ return array(
 					'text' => true
 				)
 			),
-			'shadow' => true,
 			'typography' => array(
 				'fontSize' => true,
 				'__experimentalFontFamily' => true,
@@ -8685,9 +8671,6 @@ return array(
 				'__experimentalDefaultControls' => array(
 					'fontSize' => true
 				)
-			),
-			'layout' => array(
-				'allowEditing' => false
 			),
 			'spacing' => array(
 				'padding' => true,
@@ -8700,6 +8683,9 @@ return array(
 				'color' => true,
 				'width' => true,
 				'style' => true
+			),
+			'layout' => array(
+				'allowEditing' => false
 			)
 		),
 		'editorScript' => 'file:./index.js',

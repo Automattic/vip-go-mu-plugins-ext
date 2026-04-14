@@ -109,7 +109,7 @@ var wp;
     __experimentalRichText: () => __experimentalRichText,
     __unstableCreateElement: () => createElement,
     __unstableToDom: () => toDom,
-    __unstableUseRichText: () => __unstableUseRichText,
+    __unstableUseRichText: () => useDeprecatedRichText,
     applyFormat: () => applyFormat,
     concat: () => concat,
     create: () => create,
@@ -1753,7 +1753,7 @@ var wp;
       if (!element) {
         return;
       }
-      element.style.whiteSpace = whiteSpace;
+      element.style.whiteSpace = element.style.whiteSpace || whiteSpace;
     }, []);
   }
 
@@ -2734,7 +2734,7 @@ var wp;
     });
     return { ...result, formatTypes: formatTypes2 };
   }
-  function __unstableUseRichText(props) {
+  function useDeprecatedRichText(props) {
     (0, import_deprecated.default)("`__unstableUseRichText` hook", {
       since: "7.0"
     });
@@ -2789,17 +2789,17 @@ var wp;
   var import_dom = __toESM(require_dom(), 1);
   function getFormatElement(range, editableContentElement, tagName, className) {
     let element = range.startContainer;
-    if (element.nodeType === element.TEXT_NODE && range.startOffset === element.length && element.nextSibling) {
+    if (element.nodeType === element.TEXT_NODE && element instanceof window.Text && range.startOffset === element.length && element.nextSibling) {
       element = element.nextSibling;
       while (element.firstChild) {
         element = element.firstChild;
       }
     }
     if (element.nodeType !== element.ELEMENT_NODE) {
+      if (!element.parentElement) {
+        return;
+      }
       element = element.parentElement;
-    }
-    if (!element) {
-      return;
     }
     if (element === editableContentElement) {
       return;
@@ -2808,12 +2808,20 @@ var wp;
       return;
     }
     const selector = tagName + (className ? "." + className : "");
-    while (element !== editableContentElement) {
-      if (element.matches(selector)) {
-        return element;
-      }
-      element = element.parentElement;
+    if (!selector) {
+      return;
     }
+    if (!(element instanceof window.HTMLElement)) {
+      return;
+    }
+    let closestElement = element;
+    while (closestElement && closestElement !== editableContentElement) {
+      if (closestElement.matches(selector)) {
+        return closestElement;
+      }
+      closestElement = closestElement.parentElement;
+    }
+    return void 0;
   }
   function createVirtualAnchorElement(range, editableContentElement) {
     return {
@@ -2832,7 +2840,7 @@ var wp;
     }
     const { ownerDocument } = editableContentElement;
     const { defaultView } = ownerDocument;
-    const selection = defaultView.getSelection();
+    const selection = defaultView?.getSelection();
     if (!selection) {
       return;
     }
@@ -2843,21 +2851,23 @@ var wp;
     if (!range || !range.startContainer) {
       return;
     }
-    const formatElement = getFormatElement(
-      range,
-      editableContentElement,
-      tagName,
-      className
-    );
-    if (formatElement) {
-      return formatElement;
+    if (!tagName && !className) {
+      return createVirtualAnchorElement(range, editableContentElement);
     }
-    return createVirtualAnchorElement(range, editableContentElement);
+    return getFormatElement(range, editableContentElement, tagName, className) ?? createVirtualAnchorElement(range, editableContentElement);
   }
-  function useAnchor({ editableContentElement, settings = {} }) {
-    const { tagName, className, isActive } = settings;
+  var DEFAULT_SETTINGS = {
+    tagName: "",
+    className: ""
+  };
+  function useAnchor({
+    editableContentElement,
+    settings
+  }) {
+    const { tagName, className } = settings ?? DEFAULT_SETTINGS;
+    const isActive = !!(settings && "isActive" in settings && settings.isActive);
     const [anchor, setAnchor] = (0, import_element7.useState)(
-      () => getAnchor(editableContentElement, tagName, className)
+      () => getAnchor(editableContentElement, tagName, className ?? "")
     );
     const wasActive = (0, import_compose3.usePrevious)(isActive);
     (0, import_element7.useLayoutEffect)(() => {
@@ -2866,7 +2876,7 @@ var wp;
       }
       function callback() {
         setAnchor(
-          getAnchor(editableContentElement, tagName, className)
+          getAnchor(editableContentElement, tagName, className ?? "")
         );
       }
       function attach() {
@@ -2882,7 +2892,7 @@ var wp;
       // When we _remove_ the color, it switches from a `<mark>` element to a virtual anchor.
       wasActive && !isActive) {
         setAnchor(
-          getAnchor(editableContentElement, tagName, className)
+          getAnchor(editableContentElement, tagName, className ?? "")
         );
         attach();
       }

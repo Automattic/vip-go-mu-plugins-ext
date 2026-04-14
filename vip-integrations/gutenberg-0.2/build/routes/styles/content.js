@@ -87,6 +87,20 @@ var require_editor = __commonJS({
   }
 });
 
+// package-external:@wordpress/data
+var require_data = __commonJS({
+  "package-external:@wordpress/data"(exports, module) {
+    module.exports = window.wp.data;
+  }
+});
+
+// package-external:@wordpress/core-data
+var require_core_data = __commonJS({
+  "package-external:@wordpress/core-data"(exports, module) {
+    module.exports = window.wp.coreData;
+  }
+});
+
 // routes/styles/stage.tsx
 import { useNavigate, useSearch } from "@wordpress/route";
 
@@ -137,6 +151,21 @@ function useRefWithInit(init, initArg) {
     ref.current = init(initArg);
   }
   return ref;
+}
+
+// node_modules/@base-ui/utils/esm/warn.js
+var set;
+if (true) {
+  set = /* @__PURE__ */ new Set();
+}
+function warn(...messages) {
+  if (true) {
+    const messageKey = messages.join(" ");
+    if (!set.has(messageKey)) {
+      set.add(messageKey);
+      console.warn(`Base UI: ${messageKey}`);
+    }
+  }
 }
 
 // node_modules/@base-ui/react/esm/utils/useRenderElement.js
@@ -426,6 +455,12 @@ function isSyntheticEvent(event) {
 var EMPTY_ARRAY = Object.freeze([]);
 var EMPTY_OBJECT = Object.freeze({});
 
+// node_modules/@base-ui/react/esm/utils/constants.js
+var BASE_UI_SWIPE_IGNORE_ATTRIBUTE = "data-base-ui-swipe-ignore";
+var LEGACY_SWIPE_IGNORE_ATTRIBUTE = "data-swipe-ignore";
+var BASE_UI_SWIPE_IGNORE_SELECTOR = `[${BASE_UI_SWIPE_IGNORE_ATTRIBUTE}]`;
+var LEGACY_SWIPE_IGNORE_SELECTOR = `[${LEGACY_SWIPE_IGNORE_ATTRIBUTE}]`;
+
 // node_modules/@base-ui/react/esm/utils/useRenderElement.js
 var import_react = __toESM(require_react(), 1);
 function useRenderElement(element, componentProps, params = {}) {
@@ -474,21 +509,46 @@ function useRenderElementProps(componentProps, params = {}) {
   }
   return outProps;
 }
+var REACT_LAZY_TYPE = /* @__PURE__ */ Symbol.for("react.lazy");
 function evaluateRenderProp(element, render, props, state) {
   if (render) {
     if (typeof render === "function") {
+      if (true) {
+        warnIfRenderPropLooksLikeComponent(render);
+      }
       return render(props, state);
     }
     const mergedProps = mergeProps(props, render.props);
     mergedProps.ref = props.ref;
-    return /* @__PURE__ */ React5.cloneElement(render, mergedProps);
+    let newElement = render;
+    if (newElement?.$$typeof === REACT_LAZY_TYPE) {
+      const children = React5.Children.toArray(render);
+      newElement = children[0];
+    }
+    if (true) {
+      if (!/* @__PURE__ */ React5.isValidElement(newElement)) {
+        throw new Error(["Base UI: The `render` prop was provided an invalid React element as `React.isValidElement(render)` is `false`.", "A valid React element must be provided to the `render` prop because it is cloned with props to replace the default element.", "https://base-ui.com/r/invalid-render-prop"].join("\n"));
+      }
+    }
+    return /* @__PURE__ */ React5.cloneElement(newElement, mergedProps);
   }
   if (element) {
     if (typeof element === "string") {
       return renderTag(element, props);
     }
   }
-  throw new Error(true ? "Base UI: Render element or function are not defined." : formatErrorMessage(8));
+  throw new Error(true ? "Base UI: Render element or function are not defined." : formatErrorMessage_default(8));
+}
+function warnIfRenderPropLooksLikeComponent(renderFn) {
+  const functionName = renderFn.name;
+  if (functionName.length === 0) {
+    return;
+  }
+  const firstCharacterCode = functionName.charCodeAt(0);
+  if (firstCharacterCode < 65 || firstCharacterCode > 90) {
+    return;
+  }
+  warn(`The \`render\` prop received a function named \`${functionName}\` that starts with an uppercase letter.`, "This usually means a React component was passed directly as `render={Component}`.", "Base UI calls `render` as a plain function, which can break the Rules of Hooks during reconciliation.", "If this is an intentional render callback, rename it to start with a lowercase letter.", "Use `render={<Component />}` or `render={(props) => <Component {...props} />}` instead.", "https://base-ui.com/r/invalid-render-prop");
 }
 function renderTag(Tag, props) {
   if (Tag === "button") {
@@ -520,9 +580,9 @@ var seen_default = /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_primitive
 
 // packages/ui/build-module/stack/stack.mjs
 var import_element2 = __toESM(require_element(), 1);
-if (typeof document !== "undefined" && !document.head.querySelector("style[data-wp-hash='71d20935c2']")) {
+if (typeof document !== "undefined" && true && !document.head.querySelector("style[data-wp-hash='b51ff41489']")) {
   const style = document.createElement("style");
-  style.setAttribute("data-wp-hash", "71d20935c2");
+  style.setAttribute("data-wp-hash", "b51ff41489");
   style.appendChild(document.createTextNode("@layer wp-ui-utilities, wp-ui-components, wp-ui-compositions, wp-ui-overrides;@layer wp-ui-components{._19ce0419607e1896__stack{display:flex}}"));
   document.head.appendChild(style);
 }
@@ -617,12 +677,14 @@ function Page({
   children,
   className,
   actions,
+  ariaLabel,
   hasPadding = false,
   showSidebarToggle = true
 }) {
   const classes = clsx_default("admin-ui-page", className);
-  return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(navigable_region_default, { className: classes, ariaLabel: title, children: [
-    (title || breadcrumbs || badges) && /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+  const effectiveAriaLabel = ariaLabel ?? (typeof title === "string" ? title : "");
+  return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(navigable_region_default, { className: classes, ariaLabel: effectiveAriaLabel, children: [
+    (title || breadcrumbs || badges || actions) && /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
       Header,
       {
         headingLevel,
@@ -644,13 +706,16 @@ var page_default = Page;
 var import_i18n = __toESM(require_i18n());
 var import_editor = __toESM(require_editor());
 var import_compose = __toESM(require_compose());
+var import_data = __toESM(require_data());
+var import_core_data = __toESM(require_core_data());
 var import_components2 = __toESM(require_components());
 var import_element3 = __toESM(require_element());
+import { useEditorSettings } from "@wordpress/lazy-editor";
 
 // routes/styles/style.scss
-if (typeof document !== "undefined" && !document.head.querySelector("style[data-wp-hash='7be460f5dc']")) {
+if (typeof document !== "undefined" && true && !document.head.querySelector("style[data-wp-hash='486e4a323c']")) {
   const style = document.createElement("style");
-  style.setAttribute("data-wp-hash", "7be460f5dc");
+  style.setAttribute("data-wp-hash", "486e4a323c");
   style.appendChild(document.createTextNode(".routes-styles__page .global-styles-ui-screen-root{box-shadow:none}.routes-styles__page .global-styles-ui-screen-root>div>hr{display:none}.routes-styles__page .global-styles-ui-sidebar__navigator-provider .components-tools-panel{border-top:none}.routes-styles__page .global-styles-ui-sidebar__navigator-provider{overflow-y:auto;padding-left:0;padding-right:0}"));
   document.head.appendChild(style);
 }
@@ -668,6 +733,13 @@ function Stage() {
   const navigate = useNavigate();
   const search = useSearch({ strict: false });
   const isMobileViewport = (0, import_compose.useViewportMatch)("medium", "<");
+  const globalStylesId = (0, import_data.useSelect)(
+    (select) => select(import_core_data.store).__experimentalGetCurrentGlobalStylesId(),
+    []
+  );
+  const { editorSettings } = useEditorSettings({
+    stylesId: globalStylesId
+  });
   const section = search.section ?? "/";
   const [isStyleBookOpened, setIsStyleBookOpened] = (0, import_element3.useState)(
     search.preview === "stylebook"
@@ -718,7 +790,8 @@ function Stage() {
       GlobalStylesUIWrapper,
       {
         path: section,
-        onPathChange: onChangeSection
+        onPathChange: onChangeSection,
+        settings: editorSettings
       }
     )
   );

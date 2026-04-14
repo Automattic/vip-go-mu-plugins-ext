@@ -4931,6 +4931,11 @@ var wp;
       support: ["background", "backgroundPosition"],
       useEngine: true
     },
+    backgroundGradient: {
+      value: ["background", "gradient"],
+      support: ["background", "gradient"],
+      useEngine: true
+    },
     borderColor: {
       value: ["border", "color"],
       support: ["__experimentalBorder", "color"],
@@ -7214,7 +7219,7 @@ var wp;
           block.attributes,
           block.innerBlocks
         );
-      } catch (error) {
+      } catch {
       }
     }
     return saveContent;
@@ -8296,7 +8301,7 @@ var wp;
   function getHTMLTokens(html2, logger = createLogger()) {
     try {
       return new Tokenizer(new DecodeEntityParser()).tokenize(html2);
-    } catch (e2) {
+    } catch {
       logger.warning("Malformed HTML detected: %s", html2);
     }
     return null;
@@ -8696,7 +8701,7 @@ var wp;
     for (let i2 = 0; i2 < domNodes.length; i2++) {
       try {
         result.push(fromDOM2(domNodes[i2]));
-      } catch (error) {
+      } catch {
       }
     }
     return result;
@@ -8800,7 +8805,7 @@ var wp;
       }
       try {
         return fromDOM2(match);
-      } catch (error) {
+      } catch {
         return null;
       }
     };
@@ -9521,8 +9526,8 @@ var wp;
   // packages/blocks/build-module/api/raw-handling/shortcode-converter.mjs
   var import_shortcode = __toESM(require_shortcode(), 1);
   var castArray = (maybeArray) => Array.isArray(maybeArray) ? maybeArray : [maybeArray];
-  var beforeLineRegexp = /(\n|<p>)\s*$/;
-  var afterLineRegexp = /^\s*(\n|<\/p>)/;
+  var beforeLineRegexp = /(\n|<p>|<br\s*\/?>)\s*$/;
+  var afterLineRegexp = /^\s*(\n|<\/p>|<br\s*\/?>)/;
   function segmentHTMLToShortcodeBlock(HTML, lastIndex = 0, excludedBlockNames = []) {
     const transformsFrom = getBlockTransforms("from");
     const transformation = findTransform(
@@ -9910,7 +9915,7 @@ var wp;
       let decoded;
       try {
         decoded = atob(data);
-      } catch (e2) {
+      } catch {
         node.src = "";
         return;
       }
