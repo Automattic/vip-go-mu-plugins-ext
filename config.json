@@ -133,5 +133,15 @@
     "current": {
       "0.1": "0.1.9"
     }
+  },
+  "safe-publish": {
+    "repo": "https://github.com/Automattic/safe-publish",
+    "folderPrefix": "vip-integrations/safe-publish-",
+    "versionPrefix": "v",
+    "lowestVersion": "1.0",
+    "releaseZipFileName": "safe-publish",
+    "skip": [],
+    "ignore": [],
+    "current": {}
   }
 }
