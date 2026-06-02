@@ -471,6 +471,12 @@ If you have any questions, related to this release, please [open a support ticke
 function persistConfig() {
   console.log("Persisting config", globalConfig);
 
+  if (DRY_RUN) {
+    console.log(`[DRY RUN] Would write ${CONFIG_FILE_PATH}`);
+    execCommand('git commit -avm "Update config.json"');
+    return;
+  }
+
   try {
     fs.writeFileSync(CONFIG_FILE_PATH, JSON.stringify(globalConfig, null, 2));
     execCommand('git commit -avm "Update config.json"');
