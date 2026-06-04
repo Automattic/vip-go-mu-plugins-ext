@@ -24,9 +24,9 @@ The [VIP Block Data API](https://github.com/Automattic/vip-block-data-api/) is a
 
 [VIP Governance](https://github.com/Automattic/vip-governance-plugin) is a plugin that adds additional governance capabilities to the block editor.
 
-### MCP Adapter
+### WordPress MCP
 
-[MCP Adapter](https://github.com/WordPress/mcp-adapter) bridges WordPress abilities to the Model Context Protocol (MCP).
+[WordPress MCP](https://github.com/WordPress/mcp-adapter) bridges WordPress abilities to the Model Context Protocol (MCP).
 
 # Automation
 
