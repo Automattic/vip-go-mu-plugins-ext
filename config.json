@@ -156,6 +156,8 @@
     "releaseZipRootFolder": "mcp-adapter",
     "skip": [],
     "ignore": [],
-    "current": {}
+    "current": {
+      "0.5": "0.5.0"
+    }
   }
 }
