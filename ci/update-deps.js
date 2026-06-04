@@ -3,7 +3,7 @@
 const { default: axios } = require("axios");
 const fs = require("fs");
 const path = require("path");
-const { execSync } = require("child_process");
+const { execSync, execFileSync } = require("child_process");
 const { compareVersions, addVersionPrefix, discoverPluginVersions } = require("./utils");
 const marked = require("marked");
 const os = require("os");
@@ -49,6 +49,7 @@ async function downloadReleaseZip(plugin, version, folder) {
   const config = globalConfig[plugin];
   const repoUrl = config.repo;
   const releaseZipFileName = config.releaseZipFileName;
+  const releaseZipRootFolder = config.releaseZipRootFolder;
   const prefixedVersion = getPrefixedVersion(plugin, version);
   const zipUrl = `${repoUrl}/releases/download/${prefixedVersion}/${releaseZipFileName}.zip`;
   
@@ -81,8 +82,22 @@ async function downloadReleaseZip(plugin, version, folder) {
       fs.writeFileSync(tempZipPath, response.data);
       console.log(`Downloaded zip to temporary location`);
       
-      // Extract directly to the right location
-      execSync(`unzip -o ${tempZipPath} -d ${folder}`);
+      // Extract directly to the right location.
+      execFileSync("unzip", ["-o", tempZipPath, "-d", folder]);
+
+      if (releaseZipRootFolder) {
+        const extractedRoot = path.join(folder, releaseZipRootFolder);
+
+        if (!fs.existsSync(extractedRoot)) {
+          throw new Error(`Expected release zip root folder ${releaseZipRootFolder} was not found`);
+        }
+
+        for (const entry of fs.readdirSync(extractedRoot)) {
+          fs.renameSync(path.join(extractedRoot, entry), path.join(folder, entry));
+        }
+
+        fs.rmSync(extractedRoot, { recursive: true, force: true });
+      }
       
       // Clean up temp directory
       fs.rmSync(tempDir, { recursive: true, force: true });
