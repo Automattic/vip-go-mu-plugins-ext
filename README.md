@@ -1,6 +1,6 @@
 # VIP MU plugins external dependencies
 
-This repository contains external dependencies for MU plugins. Currently this is limited to Jetpack and WP-Parsely.
+This repository contains external dependencies for MU plugins, including Jetpack, WP-Parsely, and VIP integrations.
 
 The idea behind this repo is to automate external dependency management while still maintaining back-compat.
 
@@ -23,6 +23,10 @@ The [VIP Block Data API](https://github.com/Automattic/vip-block-data-api/) is a
 ### VIP Governance
 
 [VIP Governance](https://github.com/Automattic/vip-governance-plugin) is a plugin that adds additional governance capabilities to the block editor.
+
+### MCP Adapter
+
+[MCP Adapter](https://github.com/WordPress/mcp-adapter) bridges WordPress abilities to the Model Context Protocol (MCP).
 
 # Automation
 
@@ -75,6 +79,8 @@ Each entry in config.json should follow the following format:
     "folderPrefix": "awesome-plugin-",
     "lowestVersion": "3.1",
     "versionPrefix": "",
+    "releaseZipFileName": "awesome-plugin",
+    "releaseZipRootFolder": "",
     "skip": [
       "3.4"
     ],
@@ -103,6 +109,14 @@ List of versions that should be fully ignored by upgrader. That means not update
 ## `versionPrefix`
 
 Optional string prefix used in version numbers. For example, if a plugin uses "v1.2.3" rather than "1.2.3", set this to "v". The updater will handle stripping and adding this prefix when comparing versions.
+
+## `releaseZipFileName`
+
+Optional GitHub release asset name, without the `.zip` extension. When set, the updater downloads this release zip instead of using `git subtree`.
+
+## `releaseZipRootFolder`
+
+Optional top-level folder inside the release zip. When set, the updater moves that folder's contents into the configured destination folder after extracting.
 
 # Ignored versions
 

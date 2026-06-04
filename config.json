@@ -146,5 +146,16 @@
     "current": {
       "0.0": "0.0.3"
     }
+  },
+  "mcp-adapter": {
+    "repo": "https://github.com/WordPress/mcp-adapter",
+    "folderPrefix": "vip-integrations/mcp-adapter-",
+    "versionPrefix": "v",
+    "lowestVersion": "0.5",
+    "releaseZipFileName": "mcp-adapter",
+    "releaseZipRootFolder": "mcp-adapter",
+    "skip": [],
+    "ignore": [],
+    "current": {}
   }
 }
