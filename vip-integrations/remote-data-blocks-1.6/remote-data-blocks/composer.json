@@ -1,0 +1,56 @@
+{
+  "name": "automattic/remote-data-blocks",
+  "authors": [
+    {
+      "name": "Automattic"
+    }
+  ],
+  "license": "GPL-2.0-or-later",
+  "autoload": {
+    "psr-4": {
+      "RemoteDataBlocks\\": "inc/"
+    },
+    "files": [
+      "functions.php",
+      "inc/Integrations/constants.php"
+    ]
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "RemoteDataBlocks\\Tests\\": "tests/inc/"
+    }
+  },
+  "scripts": {
+    "phpcs": "phpcs",
+    "phpcs-fix": "phpcbf",
+    "psalm": "psalm.phar --no-cache",
+    "test": "phpunit",
+    "test-coverage": "phpunit --coverage-clover ./coverage/phpunit/clover.xml"
+  },
+  "require": {
+    "php": ">=8.1",
+    "galbar/jsonpath": "^3.0",
+    "guzzlehttp/guzzle": "^7.8",
+    "kevinrob/guzzle-cache-middleware": "^7.0",
+    "erusev/parsedown": "^1.7",
+    "symfony/var-exporter": "^6"
+  },
+  "require-dev": {
+    "automattic/vipwpcs": "^3.0",
+    "phpcompatibility/phpcompatibility-wp": "^2.1",
+    "phpunit/phpunit": "^9",
+    "slevomat/coding-standard": "^8.15",
+    "php-stubs/wordpress-stubs": "^7.0",
+    "psalm/phar": "^6.5",
+    "mockery/mockery": "^1.6",
+    "wp-phpunit/wp-phpunit": "^7.0",
+    "yoast/phpunit-polyfills": "^4.0",
+    "php-stubs/wordpress-globals": "^0.2.0",
+    "php-stubs/wordpress-tests-stubs": "^7.0"
+  },
+  "config": {
+    "allow-plugins": {
+      "dealerdirect/phpcodesniffer-composer-installer": true
+    }
+  }
+}
