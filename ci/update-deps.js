@@ -410,9 +410,9 @@ async function maybeDeleteRemovedVersions() {
  *
  * @param {string} folder Plugin folder absolute path for filesystem operations
  * @param {string} folderRelative Plugin folder relative path for git operations
- * @returns {boolean} Whether plugin folder was removed or not
+ * @returns {Promise<boolean>} Whether plugin folder was removed or not
  */
-function removePluginVersion(folder, folderRelative) {
+async function removePluginVersion(folder, folderRelative) {
   if (!fs.existsSync(folder)) {
     return false;
   }
