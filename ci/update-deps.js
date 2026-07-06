@@ -5,15 +5,12 @@ const fs = require("fs");
 const path = require("path");
 const { execSync, execFileSync } = require("child_process");
 const { compareVersions, addVersionPrefix, discoverPluginVersions } = require("./utils");
-const marked = require("marked");
 const os = require("os");
 
 // Resolve the path to config.json relative to the script's location
 const CONFIG_FILE_PATH = path.resolve(__dirname, "../config.json");
 // Project root is where config.json is located
 const PROJECT_ROOT = path.dirname(CONFIG_FILE_PATH);
-
-const { LOBBY_VIP_TOKEN, CHANGELOG_VIP_TOKEN } = process.env;
 
 // Parse command line arguments
 const args = process.argv.slice(2);
@@ -26,9 +23,6 @@ if (DRY_RUN) {
 const configFile = fs.readFileSync(CONFIG_FILE_PATH, "utf8");
 const globalConfig = JSON.parse(configFile);
 console.log("Config", globalConfig);
-
-const LOBBY_URL = "lobby.vip.wordpress.com";
-const CHANGELOG_URL = "wpvipchangelog.wordpress.com";
 
 function getPrefixedVersion(plugin, version) {
   const versionPrefix = globalConfig[plugin].versionPrefix || "";
@@ -130,27 +124,6 @@ function execCommand(command) {
   }
 }
 
-async function pingSlack(message) {
-  if (DRY_RUN) {
-    console.log(`[DRY RUN] Would send Slack message: ${message}`);
-    return;
-  }
-
-  if (process.env.SLACK_WEBHOOK) {
-    try {
-      const payload = {
-        text: message,
-      };
-      await axios.post(process.env.SLACK_WEBHOOK, payload);
-      console.log("✅ Slack notification sent");
-    } catch (error) {
-      console.warn("⚠️ Failed to send Slack notification:", error.message);
-    }
-  } else {
-    console.log("ℹ️ Slack notification skipped (no webhook configured):", message);
-  }
-}
-
 async function maybeUpdateVersion(plugin, minorVersion, version) {
   const config = globalConfig[plugin];
   const folderRelative = `${config.folderPrefix}${minorVersion}`;
@@ -197,17 +170,6 @@ async function maybeUpdateVersion(plugin, minorVersion, version) {
         execCommand(command);
       }
 
-      if (
-        plugin === "jetpack" &&
-        oldVersion.includes("beta") &&
-        !version.includes("beta")
-      ) {
-        try {
-          await draftJPPost(version, "release");
-        } catch (error) {
-          console.warn("⚠️ Failed to create Jetpack release post:", error.message);
-        }
-      }
     } else {
       // add - ensure parent directory exists for subtree operations
       const parentDir = path.dirname(folder);
@@ -223,264 +185,13 @@ async function maybeUpdateVersion(plugin, minorVersion, version) {
         const command = `git subtree add -P ${folderRelative} --squash ${config.repo} ${prefixedVersion} -m "Add ${plugin} ${folderRelative} subtree with tag ${version}"`;
         execCommand(command);
       }
-      if (plugin === "jetpack" && version.includes("beta")) {
-        try {
-          await draftJPPost(version, "beta");
-        } catch (error) {
-          console.warn("⚠️ Failed to create Jetpack beta post:", error.message);
-        }
-      }
     }
-    await pingSlack(
-      `Updated ${folderRelative} to ${version}\nhttps://github.com/Automattic/vip-go-mu-plugins-ext/commits/trunk`
-    );
     globalConfig[plugin].current[minorVersion] = version;
     return true;
   } catch (err) {
     console.error(err);
     return false;
   }
-}
-
-/**
- * Drafts a post for Jetpack releases.
- *
- * @param {string} version - The version of Jetpack being released
- * @param {string} type - Type of post being drafted. Accepted values: beta, release
- * @returns {boolean} Whether the post was successfully drafted or not
- */
-async function draftJPPost(version, type) {
-  const allowedTypes = ["beta", "release"];
-  if (!allowedTypes.includes(type)) {
-    return false;
-  }
-
-  if (type === "beta" && !version.includes("beta")) {
-    return false;
-  }
-
-  const changelog = await fetchChangelog(version);
-  const section = extractChangelogSection(changelog, version, type);
-
-  if (section) {
-    let title;
-    let content;
-    let p2;
-    if (type === "beta") {
-      title = `Call for Testing: Jetpack ${version}`;
-      content = createJPBetaPostContent(version, section);
-      p2 = LOBBY_URL;
-    } else {
-      title = `New Release: Jetpack ${version}`;
-      content = createJPReleasePostContent(version, section);
-      p2 = CHANGELOG_URL;
-    }
-
-    const post = await createJPPost(title, content, type);
-    if (post.id) {
-      const postUrl = `https://${p2}/wp-admin/post.php?post=${post.id}&action=edit`;
-      pingSlack(
-        `<!subteam^S01SYE0V8TA> Jetpack ${version} ${type} draft created for review: ${postUrl}. Don't forget to deploy first before publishing!`
-      );
-      return true;
-    } else {
-      pingSlack(
-        `<!subteam^S01SYE0V8TA> Error creating Jetpack ${version} draft.`
-      );
-      return false;
-    }
-  } else {
-    pingSlack(
-      `<!subteam^S01SYE0V8TA> Error generating Jetpack ${version} changelog. Please review and manually generate.`
-    );
-  }
-}
-
-/**
- * Gets the entire changelog file contents of Jetpack from GitHub.
- *
- * @async
- * @param {string} version - The version of Jetpack being released
- * @returns {Promise<Object>} - The response data from the API
- */
-async function fetchChangelog(version) {
-  const prefixedVersion = getPrefixedVersion("jetpack", version);
-  const url = `https://raw.githubusercontent.com/Automattic/jetpack-production/${prefixedVersion}/CHANGELOG.md`;
-
-  const response = await axios.get(url);
-  return response.data;
-}
-
-/**
- * Extract changelog section for specified Jetpack version.
- *
- * @param {string} changelog - The entire changelog file contents of Jetpack
- * @param {string} version - The version of Jetpack being released
- * @param {string} type - Type of Jetpack version being released. Accepted values: beta, release
- * @returns {string|bool} changelog section for the specified version
- */
-function extractChangelogSection(changelog, version, type) {
-  let regex = new RegExp(
-    `^\\s*(## ${version}\\s.*?)^\\s*### Other changes`,
-    "ms"
-  );
-  let match = regex.exec(changelog);
-
-  if (!match && type === "release") {
-    // Re-try with [x.x] format in changelog title since that's also used for releases
-    regex = new RegExp(
-      `^\\s*(## \\[${version}\\]\\s.*?)^\\s*### Other changes`,
-      "ms"
-    );
-    match = regex.exec(changelog);
-  }
-
-  if (match) {
-    const changes = match[1].trim();
-    // Strip first line out since it's just a heading
-    const firstLineRegex = new RegExp(`(?<=\\n).*`, "ms");
-    const section = firstLineRegex.exec(changes);
-    if (section) {
-      // Strip out the PR numbers since they're not needed
-      return section[0].replace(/(\s*\[#\d+])/g, "");
-    }
-  }
-
-  return false;
-}
-
-/**
- * Creates the draft for the Jetpack post.
- *
- * @param {string} title - The title of the post
- * @param {string} content - The content of the post
- * @param {string} type - The type of Jetpack announcement post
- * @returns {Object|bool} The response data from the API
- */
-async function createJPPost(title, content, type) {
-  if (DRY_RUN) {
-    console.log(`[DRY RUN] Would create Jetpack post: "${title}"`);
-    return { id: 12345 }; // Mock ID for dry run
-  }
-
-  let p2;
-  let bearerToken;
-  let cat;
-  let tag;
-  if (type === "beta") {
-    p2 = LOBBY_URL;
-    bearerToken = LOBBY_VIP_TOKEN;
-    cat = 636069;
-    tag = 636069;
-  } else {
-    p2 = CHANGELOG_URL;
-    bearerToken = CHANGELOG_VIP_TOKEN;
-    cat = 1171;
-    tag = 5905;
-  }
-
-  // Validate that we have the required token
-  if (!bearerToken) {
-    const tokenName = type === "beta" ? "LOBBY_VIP_TOKEN" : "CHANGELOG_VIP_TOKEN";
-    console.warn(`⚠️ Cannot create Jetpack ${type} post: ${tokenName} environment variable not configured`);
-    return false;
-  }
-
-  const data = {
-    title: title,
-    content: content,
-    status: "draft",
-    categories: cat,
-    tags: tag,
-  };
-
-  return axios
-    .post(`https://public-api.wordpress.com/wp/v2/sites/${p2}/posts`, data, {
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${bearerToken}`,
-      },
-    })
-    .then((response) => {
-      console.log(`Status Code: ${response.status}`);
-      console.log("Data:", response.data);
-      return response.data;
-    })
-    .catch((error) => {
-      console.error("Error:", error.message);
-      return false;
-    });
-}
-
-/**
- * Create body content for Jetpack release post.
- *
- * @param {string} version - The version of Jetpack being released
- * @param {string} section - The changelog section for the specified version
- * @return {string} The body content for the Jetpack release post
- */
-function createJPReleasePostContent(version, section) {
-  const image =
-    "https://lobby-vip.files.wordpress.com/2021/05/3-v1_52018_preview-2.png?w=960";
-  let content = `<img src="${image}" alt="New Jetpack release">`;
-  content += `<p>Jetpack ${version} has been made the default Jetpack version on the VIP Platform.</p>`;
-  content += `<h2>What is being added or changed?</h2>`;
-  content += marked.parse(section);
-
-  const prefixedVersion = getPrefixedVersion("jetpack", version);
-  const releaseNotesLink = `https://github.com/Automattic/jetpack-production/releases/tag/${prefixedVersion}`;
-  content += `<p>For more details about this release (including specific changes), please see the <a href="${releaseNotesLink}" target="_blank">release notes</a>.</p>`;
-  content += `<h3>Questions?</h3>`;
-  content += `If you have any questions, related to this release, please open a <a href="https://wpvip.com/documentation/developing-with-vip/accessing-vip-support/" target="_blank">support ticket</a> and we will be happy to assist.`;
-
-  return content;
-}
-
-/**
- * Creates the content for the Jetpack beta post to go to the Lobby
- *
- * @param {string} version - The version of Jetpack being released
- * @param {string} section - The section of the changelog for this beta version
- * @returns {string} content - The generated content for the Lobby post
- */
-function createJPBetaPostContent(version, section) {
-  const prefixedVersion = getPrefixedVersion("jetpack", version);
-  const downloadLink = `<a href="https://github.com/Automattic/jetpack-production/releases/tag/${prefixedVersion}">available here</a>`;
-  let content = `<p>Jetpack <strong>${version}</strong> is available now for testing and the download link is ${downloadLink} </p>`;
-
-  const officialVersion = version.replace(/-beta\d?/g, "");
-  const today = new Date();
-  const dateFormatter = new Intl.DateTimeFormat("en-US", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-  const releaseDate = dateFormatter.format(today.setDate(today.getDate() + 15)); // Assumes it's a Tuesday
-  content += `<p>Jetpack ${officialVersion} will be deployed to VIP on <strong>${releaseDate}</strong>*. The upgrade is expected to be performed at 17:00 UTC (1:00PM ET).</p>`;
-
-  content += `<p><i>*This deployment date and time are subject to change if issues are discovered during testing of the Jetpack release.</i></p>
-    <p>A full list of changes is available in the <a href="https://github.com/Automattic/jetpack/commits/" target="_blank">commit log</a>.</p>
-    <h2>What is being added or changed?</h2>`;
-  content += marked.parse(section) + '\n';
-
-  content += marked.parse(`## What do I need to do?
-
-We recommend the below:
-
-1. Installing the release on your non-production sites using [these instructions](https://docs.wpvip.com/how-tos/jetpack/version-updates/#h-pinning-to-a-version).
-2. Running through the testing flows outlined in the [Jetpack Testing Guide](https://github.com/Automattic/jetpack/blob/trunk/projects/plugins/jetpack/to-test.md).
-
-As you're testing, there are a few things to keep in mind:
-
-- Check your browser's [JavaScript console](https://wordpress.org/documentation/article/using-your-browser-to-diagnose-javascript-errors/) and see if there are any errors reported by Jetpack there.
-- Use [Query Monitor](https://docs.wpvip.com/how-tos/enable-query-monitor/) to help make PHP notices and warnings more noticeable and report anything you see.
-
-## Questions?
-
-If you have any questions, related to this release, please [open a support ticket](https://docs.wpvip.com/technical-references/vip-support/) and we will be happy to assist.`);
-
-  return content;
 }
 
 function persistConfig() {
@@ -695,11 +406,11 @@ async function maybeDeleteRemovedVersions() {
 }
 
 /**
- * Removes plugin folder and pings slack.
+ * Removes plugin folder.
  *
  * @param {string} folder Plugin folder absolute path for filesystem operations
  * @param {string} folderRelative Plugin folder relative path for git operations
- * @returns {boolean} Whether plugin folder was removed or not
+ * @returns {Promise<boolean>} Whether plugin folder was removed or not
  */
 async function removePluginVersion(folder, folderRelative) {
   if (!fs.existsSync(folder)) {
@@ -707,13 +418,6 @@ async function removePluginVersion(folder, folderRelative) {
   }
 
   removeFolder(folder, folderRelative);
-  try {
-    await pingSlack(
-      `Removed ${folderRelative}\nhttps://github.com/Automattic/vip-go-mu-plugins-ext/commits/trunk`
-    );
-  } catch (err) {
-    console.error(err);
-  }
   return true;
 }
 
