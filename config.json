@@ -170,9 +170,7 @@
     "lowestVersion": "0.5",
     "releaseZipFileName": "mcp-adapter",
     "releaseZipRootFolder": "mcp-adapter",
-    "skip": [
-      "0.6"
-    ],
+    "skip": [],
     "ignore": [],
     "current": {
       "0.5": "0.5.0"
