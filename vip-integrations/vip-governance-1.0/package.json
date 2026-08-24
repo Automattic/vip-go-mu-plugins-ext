@@ -1,0 +1,78 @@
+{
+	"name": "vip-governance",
+	"version": "1.0.17",
+	"description": "This is a plugin adding additional governance capabilities to the block editor.",
+	"private": true,
+	"author": "WPVIP",
+	"main": "build/index.js",
+	"files": [
+		"build/",
+		"governance/",
+		"vendor/",
+		"vip-governance.php",
+		"governance-rules.json",
+		"governance-schema.json"
+	],
+	"devDependencies": {
+		"@automattic/eslint-plugin-wpvip": "^1.3.0",
+		"@playwright/test": "^1.62.1",
+		"@wordpress/block-editor": "^16.1.0",
+		"@wordpress/components": "^38.0.0",
+		"@wordpress/compose": "^8.5.0",
+		"@wordpress/data": "^10.52.0",
+		"@wordpress/e2e-test-utils-playwright": "^1.52.0",
+		"@wordpress/env": "^11.12.0",
+		"@wordpress/hooks": "^4.52.0",
+		"@wordpress/i18n": "^6.25.0",
+		"@wordpress/notices": "^5.52.0",
+		"@wordpress/scripts": "^34.0.0",
+		"babel-jest": "^30.4.1",
+		"eslint": "^9.39.5",
+		"lint-staged": "^17.3.0",
+		"prettier": "npm:wp-prettier@3.0.3",
+		"simple-git-hooks": "^2.13.1",
+		"webpack": "^5.109.2"
+	},
+	"scripts": {
+		"build": "webpack --mode production",
+		"dev": "webpack --watch",
+		"cmd:format": "prettier '**/*.(js|json|jsx|md|ts|tsx|yml|yaml)'",
+		"cmd:lint:js": "eslint '**/*.{js,jsx,ts,tsx}' --quiet",
+		"format": "npm run cmd:format -- --write",
+		"format:check": "npm run cmd:format -- --check",
+		"lint": "npm run format:check && npm run lint:js && npm run lint:php",
+		"lint:fix": "npm run cmd:lint:js . -- --fix",
+		"lint:js": "npm run cmd:lint:js",
+		"lint:php": "npm run lint:phpcs",
+		"lint:phpcs": "vendor/squizlabs/php_codesniffer/bin/phpcs --cache",
+		"lint:phpcs:fix": "vendor/squizlabs/php_codesniffer/bin/phpcbf",
+		"packages-update": "wp-scripts packages-update",
+		"prepare": "npx simple-git-hooks",
+		"postinstall": "composer install --no-dev",
+		"release": "./bin/release",
+		"test": "npm run test:unit",
+		"test:unit": "npm run test:php && npm run test:js",
+		"test:e2e": "npx playwright test",
+		"test:php": "composer run test",
+		"test:js": "wp-scripts test-unit-js",
+		"wp-cli": "wp-env run cli -- wp"
+	},
+	"jest": {
+		"testMatch": [
+			"<rootDir>/src/**/*.test.js"
+		],
+		"preset": "@wordpress/jest-preset-default",
+		"testPathIgnorePatterns": [
+			"/.git/",
+			"/node_modules/",
+			"/governance/",
+			"/tests/"
+		],
+		"transform": {
+			"^.+\\.[jt]sx?$": "@wordpress/scripts/config/babel-transform.js"
+		}
+	},
+	"simple-git-hooks": {
+		"pre-commit": "npx lint-staged --no-hide-partially-staged"
+	}
+}
