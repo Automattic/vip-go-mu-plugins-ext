@@ -132,13 +132,13 @@
       "0.5": "0.5.1"
     }
   },
-  "vip-workflow": {
+  "vip-workflows": {
     "repo": "https://github.com/Automattic/vip-workflows",
-    "folderPrefix": "vip-integrations/vip-workflow-",
+    "folderPrefix": "vip-integrations/vip-workflows-",
     "versionPrefix": "v",
     "lowestVersion": "0.0",
-    "releaseZipFileName": "vip-workflow",
-    "releaseZipRootFolder": "vip-workflow",
+    "releaseZipFileName": "vip-workflows",
+    "releaseZipRootFolder": "vip-workflows",
     "skip": [],
     "ignore": [],
     "current": {}
