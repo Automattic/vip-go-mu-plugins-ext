@@ -141,7 +141,9 @@
     "releaseZipRootFolder": "vip-workflows",
     "skip": [],
     "ignore": [],
-    "current": {}
+    "current": {
+      "0.0": "0.0.2"
+    }
   },
   "vip-agentforce": {
     "repo": "https://github.com/automattic/vip-agentforce",
