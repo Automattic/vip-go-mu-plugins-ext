@@ -95,6 +95,7 @@
     "versionPrefix": "v",
     "lowestVersion": "1.4",
     "releaseZipFileName": "remote-data-blocks",
+    "releaseZipRootFolder": "remote-data-blocks",
     "skip": [],
     "ignore": [],
     "current": {
