@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/10.5/phpunit.xsd"
+	bootstrap="../bootstrap.php"
+	backupGlobals="false"
+	colors="true"
+	>
+	<php>
+		<const name="WP_TESTS_MULTISITE" value="1" />
+	</php>
+	<testsuites>
+		<testsuite name="unit">
+			<directory suffix="Test.php">../</directory>
+		</testsuite>
+	</testsuites>
+</phpunit>
