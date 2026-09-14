@@ -206,6 +206,8 @@
     "releaseZipFileName": "agent-ready-content",
     "skip": [],
     "ignore": [],
-    "current": {}
+    "current": {
+      "0.2": "0.2.0"
+    }
   }
 }
