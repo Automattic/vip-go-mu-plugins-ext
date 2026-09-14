@@ -197,5 +197,15 @@
       "0.5": "0.5.0",
       "0.6": "0.6.1"
     }
+  },
+  "agent-ready-content": {
+    "repo": "https://github.com/Automattic/agent-ready-content",
+    "folderPrefix": "vip-integrations/agent-ready-content-",
+    "versionPrefix": "v",
+    "lowestVersion": "0.2",
+    "releaseZipFileName": "agent-ready-content",
+    "skip": [],
+    "ignore": [],
+    "current": {}
   }
 }
