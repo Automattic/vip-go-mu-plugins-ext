@@ -207,6 +207,8 @@
     "releaseZipFileName": "content-for-agents",
     "skip": [],
     "ignore": [],
-    "current": {}
+    "current": {
+      "0.4": "0.4.0"
+    }
   }
 }
