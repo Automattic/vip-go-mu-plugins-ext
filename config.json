@@ -199,17 +199,14 @@
       "0.6": "0.6.1"
     }
   },
-  "agent-ready-content": {
-    "repo": "https://github.com/Automattic/agent-ready-content",
-    "folderPrefix": "vip-integrations/agent-ready-content-",
+  "content-for-agents": {
+    "repo": "https://github.com/Automattic/content-for-agents",
+    "folderPrefix": "vip-integrations/content-for-agents-",
     "versionPrefix": "v",
-    "lowestVersion": "0.2",
-    "releaseZipFileName": "agent-ready-content",
+    "lowestVersion": "0.4",
+    "releaseZipFileName": "content-for-agents",
     "skip": [],
     "ignore": [],
-    "current": {
-      "0.2": "0.2.0",
-      "0.3": "0.3.0"
-    }
+    "current": {}
   }
 }
