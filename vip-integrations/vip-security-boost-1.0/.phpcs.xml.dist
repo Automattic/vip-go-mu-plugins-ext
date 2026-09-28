@@ -6,8 +6,8 @@
 	<!-- Note: this file is only used for local PHPCS checks; the vip-go-ci bot does not read it.
 	To customize the bot's behavior, see https://docs.wpvip.com/vip-code-analysis-bot/customize-the-bot/. -->
 
-	<!-- For help in understanding this file: https://github.com/squizlabs/PHP_CodeSniffer/wiki/Annotated-ruleset.xml -->
-	<!-- For help in using PHPCS: https://github.com/squizlabs/PHP_CodeSniffer/wiki/Usage -->
+	<!-- For help in understanding this file: https://github.com/PHPCSStandards/PHP_CodeSniffer/wiki/Annotated-Ruleset -->
+	<!-- For help in using PHPCS: https://github.com/PHPCSStandards/PHP_CodeSniffer/wiki/Usage -->
 	<!-- For VIP code review items: https://docs.wpvip.com/development-workflow/code-review/ -->
 	<!-- For VIP PHPCS severity levels: https://docs.wpvip.com/php_codesniffer/phpcs-report/ -->
 
@@ -18,7 +18,7 @@
 	<file>./class-loader.php</file>
 	<file>./vip-security-boost.php</file>
 	<!-- Ignoring Files and Folders:
-		https://github.com/squizlabs/PHP_CodeSniffer/wiki/Advanced-Usage#ignoring-files-and-folders -->
+		https://github.com/PHPCSStandards/PHP_CodeSniffer/wiki/Advanced-Usage#ignoring-files-and-folders -->
 	<exclude-pattern>./node_modules/</exclude-pattern>
 	<exclude-pattern>./vendor/</exclude-pattern>
 
@@ -34,7 +34,7 @@
 	Default PHPCS severity is 5 for errors/warnings.
 
 	PHPCS severity config:
-	https://github.com/squizlabs/PHP_CodeSniffer/wiki/Configuration-Options#changing-the-default-severity-levels
+	https://github.com/PHPCSStandards/PHP_CodeSniffer/wiki/Configuration-Options#changing-the-default-severity-levels
 
 	VIP Code Analysis Bot customization:
 	https://docs.wpvip.com/vip-code-analysis-bot/customize-the-bot/#h-phpcs-severity
