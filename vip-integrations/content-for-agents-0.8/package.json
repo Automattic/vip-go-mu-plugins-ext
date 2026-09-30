@@ -1,0 +1,35 @@
+{
+  "name": "content-for-agents",
+  "version": "0.8.0",
+  "private": true,
+  "license": "GPL-2.0-or-later",
+  "files": [
+    "includes/",
+    "content-for-agents.php",
+    "LICENSE",
+    "docs/NOTICE.md",
+    "docs/PLUGIN-GUIDE.md",
+    "docs/INTEGRATIONS.md",
+    "README.md"
+  ],
+  "scripts": {
+    "cmd:format": "prettier '**/*.{json,md,yml,yaml}' '.github/**/*.{yml,yaml}' '.wp-env.json'",
+    "format": "npm run cmd:format -- --write",
+    "format:check": "npm run cmd:format -- --check",
+    "plugin-zip": "wp-scripts plugin-zip --no-root-folder",
+    "test:integration": "wp-env run tests-cli --env-cwd=\"wp-content/plugins/$(basename \"$(git rev-parse --show-toplevel)\")\" env WP_TESTS_DIR=/wordpress-phpunit ./vendor/bin/phpunit -c phpunit-integration.xml"
+  },
+  "devDependencies": {
+    "@wordpress/env": "^11.13.0",
+    "@wordpress/scripts": "^35.0.0",
+    "prettier": "npm:wp-prettier@3.9.6"
+  },
+  "engines": {
+    "node": "^20.19.0 || >=22.13.0",
+    "npm": ">=10.0.0"
+  },
+  "author": {
+    "name": "WPVIP",
+    "url": "https://wpvip.com"
+  }
+}
