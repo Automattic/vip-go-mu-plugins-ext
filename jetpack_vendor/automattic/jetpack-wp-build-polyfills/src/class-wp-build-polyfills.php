@@ -1,0 +1,395 @@
+<?php
+/**
+ * Polyfill registration for Core packages not available or incomplete in older WordPress versions.
+ *
+ * On WordPress 7.0 at the default threshold, only wp-private-apis and wp-rich-text replace Core's
+ * copies; every other polyfill fills in what Core lacks, or replaces a Gutenberg copy too old to use.
+ *
+ * @package automattic/jetpack-wp-build-polyfills
+ */
+
+namespace Automattic\Jetpack\WP_Build_Polyfills;
+
+/**
+ * Registers polyfill scripts and modules for WordPress Core packages.
+ */
+class WP_Build_Polyfills {
+
+	/**
+	 * Available polyfill handles for classic scripts.
+	 */
+	const SCRIPT_HANDLES = array( 'wp-notices', 'wp-private-apis', 'wp-rich-text', 'wp-theme', 'wp-views' );
+
+	/**
+	 * Available polyfill module IDs.
+	 */
+	const MODULE_IDS = array( '@wordpress/boot', '@wordpress/route', '@wordpress/a11y', '@wordpress/widget-primitives' );
+
+	/**
+	 * Polyfills that only work when another polyfill is registered alongside them.
+	 *
+	 * These bundles call `__dangerousOptInToUnstableAPIsOnlyForCoreModules()` at
+	 * module scope, which throws unless the `wp-private-apis` implementation that
+	 * actually loads allowlists their package name. WP 7.0's allowlist omits
+	 * `@wordpress/views` and `@wordpress/compose` (bundled into the rich-text
+	 * polyfill), so requesting either polyfill without `wp-private-apis` blanks
+	 * the page. It does allow `@wordpress/theme`, and WP 7.0 registers `wp-theme`
+	 * itself, so the theme polyfill never loads there.
+	 *
+	 * The `wp-private-apis` script dependency in each `.asset.php` is not enough
+	 * on its own — it makes WordPress enqueue the *handle*, which resolves to
+	 * Core's incomplete implementation unless the polyfill was requested too.
+	 *
+	 * @var array<string, string[]>
+	 */
+	const SCRIPT_DEPENDENCIES = array(
+		'wp-rich-text' => array( 'wp-private-apis' ),
+		'wp-theme'     => array( 'wp-private-apis' ),
+		'wp-views'     => array( 'wp-private-apis' ),
+	);
+
+	/**
+	 * Minimum Gutenberg plugin version known to ship a private-apis allowlist
+	 * that includes the dashboard packages used by this package's current build.
+	 */
+	const GUTENBERG_PRIVATE_APIS_MIN_VERSION = '23.5.0';
+
+	/**
+	 * Minimum Gutenberg plugin version whose rich-text ships all the privateApis
+	 * keys dashboard packages unlock (useRichText, KeyboardShortcutContext,
+	 * InputEventContext, shortcutsListener, inputEventsListener). They were
+	 * completed by Gutenberg PR #78471, first released in 23.6.0 — verified
+	 * against the released builds: 23.5.0 lacks three of the five keys.
+	 */
+	const GUTENBERG_RICH_TEXT_MIN_VERSION = '23.6.0';
+
+	/**
+	 * Minimum Gutenberg plugin version whose widget-primitives script module ships the
+	 * `WidgetHostProvider` / `useWidgetHost` seam that widget-dashboard >= 0.6.0 imports at
+	 * module scope (Gutenberg PR #81740, first released in 23.9.0).
+	 */
+	const GUTENBERG_WIDGET_PRIMITIVES_MIN_VERSION = '23.9.0';
+
+	/**
+	 * Tracks which polyfills have been requested and by which consumers.
+	 *
+	 * Keys are polyfill handles/module IDs, values are arrays of consumer names.
+	 *
+	 * @var array<string, string[]>
+	 */
+	private static $requested = array();
+
+	/**
+	 * Whether registration has already run, or been hooked to wp_default_scripts.
+	 *
+	 * @var bool
+	 */
+	private static $hooked = false;
+
+	/**
+	 * The WordPress version below which force-replacements are applied.
+	 * When multiple consumers call register() with different thresholds,
+	 * the highest threshold wins (most conservative approach).
+	 *
+	 * @var string
+	 */
+	private static $wp_version_threshold = '7.0';
+
+	/**
+	 * Overrides the build directory. Test seam, null in production.
+	 *
+	 * @var string|null
+	 */
+	private static $build_dir_override = null;
+
+	/**
+	 * Register polyfill scripts and modules.
+	 *
+	 * Call this early (e.g. during plugin load) — it hooks into wp_default_scripts
+	 * at priority 20 so Core (default) and Gutenberg (priority 10) register first.
+	 *
+	 * When multiple consumers call this method with different thresholds, the
+	 * highest threshold wins (most conservative — polyfills active on more versions).
+	 *
+	 * Polyfills listed in SCRIPT_DEPENDENCIES pull in their companion polyfill
+	 * automatically, so consumers cannot request a combination that throws at
+	 * load time. Those companions show up in get_consumers() under the
+	 * requesting consumer's name.
+	 *
+	 * Every call also arms WP_Build_Admin_Frame for the request, which keeps the boot
+	 * single-page layout in step with the wp-admin frame on every wp-build page.
+	 *
+	 * @param string   $consumer             A unique identifier for the consumer (e.g. plugin slug).
+	 * @param string[] $polyfills             List of polyfill handles/module IDs to register.
+	 *                                        Use class constants SCRIPT_HANDLES and MODULE_IDS for reference.
+	 * @param string   $wp_version_threshold  The WordPress version below which force-replacements
+	 *                                        are applied. Defaults to '7.0'.
+	 */
+	public static function register( $consumer, $polyfills, $wp_version_threshold = '7.0' ) {
+		WP_Build_Admin_Frame::register();
+
+		$added = array();
+		foreach ( $polyfills as $handle ) {
+			if ( ! in_array( $handle, self::SCRIPT_HANDLES, true ) && ! in_array( $handle, self::MODULE_IDS, true ) ) {
+				continue;
+			}
+
+			$required = array_merge( array( $handle ), self::SCRIPT_DEPENDENCIES[ $handle ] ?? array() );
+
+			foreach ( $required as $required_handle ) {
+				if ( ! isset( self::$requested[ $required_handle ] ) ) {
+					self::$requested[ $required_handle ] = array();
+					$added[]                             = $required_handle;
+				}
+				if ( ! in_array( $consumer, self::$requested[ $required_handle ], true ) ) {
+					self::$requested[ $required_handle ][] = $consumer;
+				}
+			}
+		}
+
+		$raised = version_compare( $wp_version_threshold, self::$wp_version_threshold, '>' );
+		if ( $raised ) {
+			self::$wp_version_threshold = $wp_version_threshold;
+		}
+
+		$package_root = dirname( __DIR__ );
+		$build_dir    = self::$build_dir_override ?? $package_root . '/build';
+		$base_file    = $package_root . '/composer.json';
+
+		if ( self::$hooked ) {
+			// Registration already ran, so apply this call's new polyfills and raised threshold to it.
+			if ( ( $raised || $added ) && did_action( 'wp_default_scripts' ) ) {
+				self::register_scripts( wp_scripts(), $build_dir, $base_file, self::$wp_version_threshold );
+				self::register_modules( $build_dir, $base_file, $added );
+			}
+			return;
+		}
+		self::$hooked = true;
+
+		// `wp_default_scripts` fires when `wp_scripts()` creates the WP_Scripts singleton, and again on
+		// `init` if it was created before then. Once it has fired (common on admin requests by
+		// `admin_menu`), a hook added now may never run, so register synchronously instead.
+		if ( did_action( 'wp_default_scripts' ) ) {
+			self::register_scripts( wp_scripts(), $build_dir, $base_file, self::$wp_version_threshold );
+			self::register_modules( $build_dir, $base_file );
+			return;
+		}
+
+		add_action(
+			'wp_default_scripts',
+			function ( $scripts ) use ( $build_dir, $base_file ) {
+				self::register_scripts( $scripts, $build_dir, $base_file, self::$wp_version_threshold );
+				self::register_modules( $build_dir, $base_file );
+			},
+			20
+		);
+	}
+
+	/**
+	 * Get the map of requested polyfills and their consumers.
+	 *
+	 * @return array<string, string[]> Keys are polyfill handles/module IDs, values are consumer names.
+	 */
+	public static function get_consumers() {
+		return self::$requested;
+	}
+
+	/**
+	 * Register polyfill classic scripts.
+	 *
+	 * @param \WP_Scripts $scripts               The WP_Scripts instance.
+	 * @param string      $build_dir             Absolute path to the build directory.
+	 * @param string      $base_file             File path for plugins_url() computation.
+	 * @param string      $wp_version_threshold  WP version below which force-replacements apply.
+	 */
+	private static function register_scripts( $scripts, $build_dir, $base_file, $wp_version_threshold ) {
+		// Force-replace only when Core's bundled scripts are incomplete and
+		// Gutenberg cannot be trusted to provide a compatible implementation.
+		$gutenberg_version = defined( 'GUTENBERG_VERSION' ) ? GUTENBERG_VERSION : null;
+
+		$polyfills = array(
+			'wp-notices'      => array(
+				'path'            => 'notices',
+				'force_threshold' => '7.0',
+				// WP 7.0 ships the SnackbarNotices and InlineNotices exports
+				// @wordpress/boot depends on, so on a supported site this forces only
+				// when a consumer raises the threshold, and never with Gutenberg active.
+			),
+			'wp-private-apis' => array(
+				'path'                  => 'private-apis',
+				'force_threshold'       => '7.1',
+				'gutenberg_min_version' => self::GUTENBERG_PRIVATE_APIS_MIN_VERSION,
+				// WP 7.0's private-apis allowlist rejects newer dashboard packages
+				// such as @wordpress/views and @wordpress/widget-dashboard. Active
+				// Gutenberg is only a safe substitute once its private-apis
+				// allowlist includes those dashboard packages too.
+			),
+			'wp-rich-text'    => array(
+				'path'                  => 'rich-text',
+				'force_threshold'       => '7.1',
+				'gutenberg_min_version' => self::GUTENBERG_RICH_TEXT_MIN_VERSION,
+				// WP 7.0 ships a rich-text that locks only `useRichText` into
+				// `privateApis`, so current dashboard dependencies that unlock more
+				// keys at module scope (e.g. @wordpress/dataviews >= 17.2 dataform
+				// controls) get undefined and the page blanks. Older Gutenberg is
+				// not a safe substitute either — see the constant's doc.
+			),
+			'wp-theme'        => array(
+				'path' => 'theme',
+			),
+			'wp-views'        => array(
+				'path' => 'views',
+			),
+		);
+
+		foreach ( $polyfills as $handle => $data ) {
+			if ( ! isset( self::$requested[ $handle ] ) ) {
+				continue;
+			}
+
+			$asset_file = $build_dir . '/scripts/' . $data['path'] . '/index.asset.php';
+
+			if ( ! file_exists( $asset_file ) ) {
+				continue;
+			}
+
+			$src = plugins_url( 'build/scripts/' . $data['path'] . '/index.js', $base_file );
+
+			// Already ours from an earlier register() call; replacing it would drop anything attached since.
+			$registered = $scripts->query( $handle, 'registered' );
+			if ( $registered && $src === $registered->src ) {
+				continue;
+			}
+
+			$force_threshold = $data['force_threshold'] ?? null;
+			if ( null !== $force_threshold && version_compare( $wp_version_threshold, $force_threshold, '>' ) ) {
+				$force_threshold = $wp_version_threshold;
+			}
+
+			$force = null !== $force_threshold
+				&& ! self::is_gutenberg_version_safe( $data['gutenberg_min_version'] ?? null, $gutenberg_version )
+				&& version_compare( $GLOBALS['wp_version'] ?? '0', $force_threshold, '<' );
+
+			if ( ! $force && $scripts->query( $handle, 'registered' ) ) {
+				continue;
+			}
+
+			// Deregister first when forcing replacement of an existing registration.
+			// `remove()` drops everything Core set up alongside the src — notably
+			// `$args` (Core registers package scripts with `1`, i.e. in the footer)
+			// and the registered translations. Both are restored after `add()` so
+			// the replacement is a drop-in for the registration it displaces.
+			$replaced = null;
+			if ( $force && $scripts->query( $handle, 'registered' ) ) {
+				$replaced = $scripts->registered[ $handle ];
+				$scripts->remove( $handle );
+			}
+
+			$asset = require $asset_file;
+
+			$scripts->add(
+				$handle,
+				$src,
+				$asset['dependencies'],
+				$asset['version'],
+				// Match Core's `wp_default_packages_scripts()`, which registers every
+				// `wp-*` package script in the footer.
+				null !== $replaced ? $replaced->args : 1
+			);
+
+			if ( null !== $replaced && null !== $replaced->textdomain ) {
+				$scripts->set_translations( $handle, $replaced->textdomain, $replaced->translations_path );
+			} elseif ( in_array( 'wp-i18n', $asset['dependencies'], true ) ) {
+				// Same rule Core applies when registering its own package scripts.
+				// Translations resolve via `{locale}-{handle}.json`, which is keyed
+				// by handle, so the polyfill's own src path does not break the lookup.
+				$scripts->set_translations( $handle );
+			}
+		}
+	}
+
+	/**
+	 * Check whether the active Gutenberg plugin can satisfy a forced script.
+	 *
+	 * @param string|null $minimum_version   Minimum Gutenberg version required for the script, or null when any active Gutenberg is sufficient.
+	 * @param string|null $gutenberg_version Active Gutenberg version, or null when Gutenberg is inactive.
+	 * @return bool True when Gutenberg is active and new enough.
+	 */
+	private static function is_gutenberg_version_safe( $minimum_version, $gutenberg_version ) {
+		if ( null === $gutenberg_version ) {
+			return false;
+		}
+
+		if ( null === $minimum_version ) {
+			return true;
+		}
+
+		return version_compare( $gutenberg_version, $minimum_version, '>=' );
+	}
+
+	/**
+	 * Register polyfill script modules.
+	 *
+	 * Calls to wp_register_script_module() silently ignore duplicate registrations (first wins), so an
+	 * already registered module is left alone unless the active Gutenberg's copy is known to be
+	 * too old for this package's current build, in which case it is replaced.
+	 *
+	 * @param string        $build_dir  Absolute path to the build directory.
+	 * @param string        $base_file  File path for plugins_url() computation.
+	 * @param string[]|null $module_ids Only these requested module IDs, or null for all of them.
+	 */
+	private static function register_modules( $build_dir, $base_file, $module_ids = null ) {
+		if ( ! function_exists( 'wp_register_script_module' ) ) {
+			return;
+		}
+
+		$gutenberg_version = defined( 'GUTENBERG_VERSION' ) ? GUTENBERG_VERSION : null;
+
+		$modules = array(
+			'boot'              => array(),
+			'route'             => array(),
+			'a11y'              => array(),
+			'widget-primitives' => array(
+				// Gutenberg re-registers Core's script modules with its own copies, and
+				// older ones lack exports widget-dashboard imports at module scope. The
+				// replacement only adds exports, so Gutenberg's own consumers keep working.
+				'gutenberg_min_version' => self::GUTENBERG_WIDGET_PRIMITIVES_MIN_VERSION,
+			),
+		);
+
+		foreach ( $modules as $name => $data ) {
+			$module_id = '@wordpress/' . $name;
+
+			if ( ! isset( self::$requested[ $module_id ] ) ) {
+				continue;
+			}
+
+			if ( null !== $module_ids && ! in_array( $module_id, $module_ids, true ) ) {
+				continue;
+			}
+
+			$asset_file = $build_dir . '/modules/' . $name . '/index.asset.php';
+
+			if ( ! file_exists( $asset_file ) ) {
+				continue;
+			}
+
+			$asset = require $asset_file;
+
+			if (
+				isset( $data['gutenberg_min_version'] )
+				&& null !== $gutenberg_version
+				&& ! self::is_gutenberg_version_safe( $data['gutenberg_min_version'], $gutenberg_version )
+			) {
+				wp_deregister_script_module( $module_id );
+			}
+
+			wp_register_script_module(
+				$module_id,
+				plugins_url( 'build/modules/' . $name . '/index.js', $base_file ),
+				$asset['module_dependencies'] ?? array(),
+				$asset['version']
+			);
+		}
+	}
+}
