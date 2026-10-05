@@ -1,0 +1,1029 @@
+<?php
+/**
+ * Admin Menu Registration
+ *
+ * @package automattic/jetpack-admin-ui
+ */
+
+namespace Automattic\Jetpack\Admin_UI;
+
+use Automattic\Jetpack\Feature_Policy;
+use Automattic\Jetpack\Tracking;
+use Jetpack_Options;
+use Jetpack_Tracks_Client;
+
+/**
+ * This class offers a wrapper to add_submenu_page and makes sure stand-alone plugin's menu items are always added under the Jetpack top level menu.
+ * If the Jetpack top level was not previously registered by other plugin, it will be registered here.
+ */
+class Admin_Menu {
+
+	const PACKAGE_VERSION = '0.14.3';
+
+	/**
+	 * Slug used for the upgrade menu item and redirect URL.
+	 *
+	 * Keep the slug in sync with `$upgrade-menu-slug` at admin-ui-upgrade-menu.scss
+	 *
+	 * @var string
+	 */
+	const UPGRADE_MENU_SLUG = 'jetpack-wpadmin-sidebar-free-plan-upsell-menu-item';
+
+	/**
+	 * Fallback upgrade URL when the Redirect class is unavailable.
+	 *
+	 * @var string
+	 */
+	const UPGRADE_MENU_FALLBACK_URL = 'https://jetpack.com/upgrade/';
+
+	/*
+	 * The sidebar's position tiers. Items sharing a tier sort alphabetically by menu title, so a
+	 * product should pass no position and land in POSITION_DEFAULT. add_menu() treats any value
+	 * that is not a tier below as omitted, so an int of your own cannot opt an item out.
+	 */
+
+	/**
+	 * Owns the top-level Jetpack link, since WordPress points it at whichever item sorts first.
+	 *
+	 * @var int
+	 */
+	const POSITION_FIRST = -10;
+
+	/**
+	 * Takes the first slot when nothing claims POSITION_FIRST, as in offline mode.
+	 *
+	 * @var int
+	 */
+	const POSITION_FIRST_FALLBACK = -5;
+
+	/**
+	 * Products, in alphabetical order. Pass no position rather than this.
+	 *
+	 * @var int
+	 */
+	const POSITION_DEFAULT = 0;
+
+	/**
+	 * Links that leave wp-admin, grouped below the products.
+	 *
+	 * @var int
+	 */
+	const POSITION_EXTERNAL = 100;
+
+	/**
+	 * Site-level items that belong under everything else.
+	 *
+	 * @var int
+	 */
+	const POSITION_LAST = 998;
+
+	/**
+	 * The upgrade item this package adds, below every tier a caller can use.
+	 *
+	 * @var int
+	 */
+	const POSITION_UPGRADE = 999;
+
+	/**
+	 * The tiers add_menu() accepts. POSITION_UPGRADE is left out: only this class claims it.
+	 *
+	 * @var int[]
+	 */
+	private const CALLER_POSITIONS = array(
+		self::POSITION_FIRST,
+		self::POSITION_FIRST_FALLBACK,
+		self::POSITION_DEFAULT,
+		self::POSITION_EXTERNAL,
+		self::POSITION_LAST,
+	);
+
+	/**
+	 * Handle for the bundled WPDS design-tokens stylesheet.
+	 *
+	 * Fallback when Core/Gutenberg has not registered the `wp-theme` style.
+	 *
+	 * @var string
+	 */
+	const DESIGN_TOKENS_HANDLE = 'jetpack-admin-ui-design-tokens';
+
+	/**
+	 * Handle for the source-less stylesheet that hides WordPress core admin notices.
+	 *
+	 * @var string
+	 */
+	const HIDE_CORE_NOTICES_HANDLE = 'jetpack-admin-ui-hide-core-notices';
+
+	/**
+	 * Visibility state: show the item only when its declared gate is satisfied.
+	 *
+	 * @var string
+	 */
+	const VISIBILITY_DEFAULT = 'default';
+
+	/**
+	 * Visibility state: show the item whatever its gate says.
+	 *
+	 * @var string
+	 */
+	const VISIBILITY_VISIBLE = 'visible';
+
+	/**
+	 * Visibility state: keep the item out whatever its gate says.
+	 *
+	 * @var string
+	 */
+	const VISIBILITY_HIDDEN = 'hidden';
+
+	/**
+	 * Whether this class has been initialized
+	 *
+	 * @var boolean
+	 */
+	private static $initialized = false;
+
+	/**
+	 * List of menu items enqueued to be added
+	 *
+	 * @var array
+	 */
+	private static $menu_items = array();
+
+	/**
+	 * List of top level menu items enqueued to be added
+	 *
+	 * @var array
+	 */
+	private static $top_level_items = array();
+
+	/**
+	 * Hook suffixes of the pages registered through this class.
+	 *
+	 * Used to scope the design-tokens stylesheet to Jetpack admin pages.
+	 *
+	 * @var array
+	 */
+	private static $page_hooks = array();
+
+	/**
+	 * Optional connection manager dependency.
+	 *
+	 * @var object|null
+	 */
+	private static $connection_manager = null;
+
+	/**
+	 * Callback that answers whether a menu item's declared gate is satisfied.
+	 *
+	 * Set by My Jetpack, which owns the product classes the gates name. Stays null on a
+	 * site without it, where every gate then fails open.
+	 *
+	 * @var callable|null
+	 */
+	private static $visibility_resolver = null;
+
+	/**
+	 * Menu slugs registered this request but kept out of the rendered sidebar.
+	 *
+	 * @var string[]
+	 */
+	private static $hidden_menu_slugs = array();
+
+	/**
+	 * Top level menu slugs registered this request but kept out of the rendered sidebar.
+	 *
+	 * @var string[]
+	 */
+	private static $hidden_top_level_slugs = array();
+
+	/**
+	 * Whether the top level registration pass has been hooked.
+	 *
+	 * Separate from $initialized, which also builds the Jetpack menu.
+	 *
+	 * @var boolean
+	 */
+	private static $top_level_initialized = false;
+
+	/**
+	 * Initialize the class and set up the main hook
+	 *
+	 * @return void
+	 */
+	public static function init() {
+		if ( ! self::$initialized ) {
+			self::$initialized = true;
+			self::handle_akismet_menu();
+			add_action( 'admin_menu', array( __CLASS__, 'admin_menu_hook_callback' ), 1000 ); // Jetpack uses 998.
+			add_action( 'network_admin_menu', array( __CLASS__, 'admin_menu_hook_callback' ), 1000 ); // Jetpack uses 998.
+			add_action( 'admin_head', array( __CLASS__, 'remove_hidden_menu_items' ) );
+			add_action( 'admin_enqueue_scripts', array( __CLASS__, 'add_upgrade_menu_item_styles' ) );
+			add_action( 'admin_enqueue_scripts', array( __CLASS__, 'maybe_enqueue_design_tokens' ) );
+		}
+	}
+
+	/**
+	 * Drops every queued item and unhooks the registration passes.
+	 *
+	 * Intended for tests.
+	 *
+	 * @return void
+	 */
+	public static function reset() {
+		self::$menu_items             = array();
+		self::$top_level_items        = array();
+		self::$page_hooks             = array();
+		self::$hidden_menu_slugs      = array();
+		self::$hidden_top_level_slugs = array();
+		self::$initialized            = false;
+		self::$top_level_initialized  = false;
+
+		remove_action( 'admin_menu', array( __CLASS__, 'admin_menu_hook_callback' ), 1000 );
+		remove_action( 'network_admin_menu', array( __CLASS__, 'admin_menu_hook_callback' ), 1000 );
+		remove_action( 'admin_menu', array( __CLASS__, 'top_level_menu_hook_callback' ), 1000 );
+		remove_action( 'admin_head', array( __CLASS__, 'remove_hidden_menu_items' ) );
+		remove_action( 'admin_enqueue_scripts', array( __CLASS__, 'add_upgrade_menu_item_styles' ) );
+		remove_action( 'admin_enqueue_scripts', array( __CLASS__, 'maybe_enqueue_design_tokens' ) );
+	}
+
+	/**
+	 * Handles the Akismet menu item when used alongside other stand-alone plugins
+	 *
+	 * When Jetpack plugin is present, Akismet menu item is moved under the Jetpack top level menu, but if Akismet is active alongside other stand-alone plugins,
+	 * we use this method to move the menu item.
+	 */
+	private static function handle_akismet_menu() {
+		if ( class_exists( 'Akismet_Admin' ) ) {
+			add_action(
+				'admin_menu',
+				function () {
+					// Prevent Akismet from adding a menu item.
+					remove_action( 'admin_menu', array( 'Akismet_Admin', 'admin_menu' ), 5 );
+
+					// Add an Anti-spam menu item for Jetpack.
+					self::add_menu( __( 'Akismet Anti-spam', 'jetpack-admin-ui' ), __( 'Akismet Anti-spam', 'jetpack-admin-ui' ), 'manage_options', 'akismet-key-config', array( 'Akismet_Admin', 'display_page' ) );
+				},
+				4
+			);
+
+		}
+	}
+
+	/**
+	 * Callback to the admin_menu and network_admin_menu hooks that will register the enqueued menu items
+	 *
+	 * @return void
+	 */
+	public static function admin_menu_hook_callback() {
+		$can_see_toplevel_menu  = true;
+		$jetpack_plugin_present = class_exists( 'Jetpack_React_Page' );
+		$icon                   = 'dashicons-admin-plugins';
+		if ( method_exists( '\Automattic\Jetpack\Assets\Logo', 'get_base64_admin_menu_logo' ) ) {
+			$icon = ( new \Automattic\Jetpack\Assets\Logo() )->get_base64_admin_menu_logo();
+		} elseif ( method_exists( '\Automattic\Jetpack\Assets\Logo', 'get_base64_logo' ) ) {
+			$icon = ( new \Automattic\Jetpack\Assets\Logo() )->get_base64_logo();
+		}
+
+		if ( ! $jetpack_plugin_present ) {
+			add_menu_page(
+				'Jetpack',
+				'Jetpack',
+				'edit_posts',
+				'jetpack',
+				'__return_null',
+				$icon,
+				3
+			);
+
+			// If Jetpack plugin is not present, user will only be able to see this menu if they have enough capability to at least one of the sub menus being added.
+			$can_see_toplevel_menu = false;
+		}
+
+		/*
+		 * Sort here and register in that order, without passing the position on: core splices an
+		 * int back in, and prepends 0 or less. See https://core.trac.wordpress.org/ticket/52035.
+		 */
+		usort(
+			self::$menu_items,
+			function ( $a, $b ) {
+				$position_a = empty( $a['position'] ) ? 0 : $a['position'];
+				$position_b = empty( $b['position'] ) ? 0 : $b['position'];
+				$result     = $position_a <=> $position_b;
+
+				if ( 0 === $result ) {
+					// Case-insensitive and number-aware, so "eCommerce" sorts with the Es.
+					// Still a byte compare: a leading accented character sorts after Z.
+					$result = strnatcasecmp( $a['menu_title'], $b['menu_title'] );
+				}
+
+				return $result;
+			}
+		);
+
+		$visibility = self::get_visibility_states();
+
+		self::$hidden_menu_slugs = array();
+
+		foreach ( self::$menu_items as $menu_item ) {
+			if ( ! current_user_can( $menu_item['capability'] ) ) {
+				continue;
+			}
+
+			/*
+			 * A hidden item is still registered, so its page keeps resolving for links into it.
+			 * It leaves the submenu on admin_head instead: core's access check reads $submenu.
+			 */
+			if ( self::is_menu_item_visible( $menu_item, $visibility ) ) {
+				$can_see_toplevel_menu = true;
+			} else {
+				self::$hidden_menu_slugs[] = $menu_item['menu_slug'];
+			}
+
+			add_submenu_page(
+				'jetpack',
+				$menu_item['page_title'],
+				$menu_item['menu_title'],
+				$menu_item['capability'],
+				$menu_item['menu_slug'],
+				$menu_item['function']
+			);
+		}
+
+		if ( ! $jetpack_plugin_present ) {
+			remove_submenu_page( 'jetpack', 'jetpack' );
+		}
+
+		if ( ! $can_see_toplevel_menu ) {
+			remove_menu_page( 'jetpack' );
+		}
+
+		self::maybe_add_upgrade_menu_item();
+	}
+
+	/**
+	 * Hooks the top level registration pass, without building the Jetpack menu that init() does.
+	 *
+	 * @return void
+	 */
+	private static function init_top_level() {
+		if ( ! self::$top_level_initialized ) {
+			self::$top_level_initialized = true;
+			add_action( 'admin_menu', array( __CLASS__, 'top_level_menu_hook_callback' ), 1000 );
+			add_action( 'admin_head', array( __CLASS__, 'remove_hidden_menu_items' ) );
+		}
+	}
+
+	/**
+	 * Registers the queued top level items, skipping the ones that should not be seen.
+	 *
+	 * These sit beside the Jetpack menu, so they never count towards keeping it alive.
+	 *
+	 * @return void
+	 */
+	public static function top_level_menu_hook_callback() {
+		$visibility = self::get_visibility_states();
+
+		self::$hidden_top_level_slugs = array();
+
+		foreach ( self::$top_level_items as $menu_item ) {
+			if ( ! current_user_can( $menu_item['capability'] ) ) {
+				continue;
+			}
+
+			if ( ! self::is_menu_item_visible( $menu_item, $visibility ) ) {
+				self::$hidden_top_level_slugs[] = $menu_item['menu_slug'];
+			}
+
+			add_menu_page(
+				$menu_item['page_title'],
+				$menu_item['menu_title'],
+				$menu_item['capability'],
+				$menu_item['menu_slug'],
+				$menu_item['function'],
+				$menu_item['icon_url'],
+				$menu_item['position']
+			);
+		}
+	}
+
+	/**
+	 * Adds a top level menu item under the same visibility gate and filter as add_menu().
+	 *
+	 * Unlike add_menu(), the page gets neither the core-notice CSS nor the design tokens.
+	 * Parameters mirror add_menu_page(), with $args appended.
+	 *
+	 * @since 0.13.0
+	 *
+	 * @param string        $page_title The text to be displayed in the title tags of the page when the menu
+	 *                                  is selected.
+	 * @param string        $menu_title The text to be used for the menu.
+	 * @param string        $capability The capability required for this menu to be displayed to the user.
+	 * @param string        $menu_slug  The slug name to refer to this menu by. Should be unique for this menu.
+	 * @param callable|null $function   The function to be called to output the content for this page.
+	 * @param string        $icon_url   The URL to the icon to be used for this menu, or a dashicons class.
+	 * @param int|null      $position   The position in the menu order this item should appear.
+	 * @param array         $args       Optional. Visibility declaration for this item; see add_menu().
+	 *
+	 * @return string The resulting page's hook_suffix
+	 */
+	public static function add_top_level_menu( $page_title, $menu_title, $capability, $menu_slug, $function, $icon_url = '', $position = null, $args = array() ) {
+		self::init_top_level();
+		self::$top_level_items[] = compact( 'page_title', 'menu_title', 'capability', 'menu_slug', 'function', 'icon_url', 'position', 'args' );
+
+		// Same derivation as get_plugin_page_hookname(), which strips ".php" anywhere in the slug.
+		return 'toplevel_page_' . preg_replace( '!\.php!', '', plugin_basename( $menu_slug ) );
+	}
+
+	/**
+	 * Adds a new submenu to the Jetpack Top level menu
+	 *
+	 * The parameters this method accepts are the same as @see add_submenu_page. This class will
+	 * aggreagate all menu items registered by stand-alone plugins and make sure they all go under the same
+	 * Jetpack top level menu. It will also handle the top level menu registration in case the Jetpack plugin is not present.
+	 *
+	 * @param string        $page_title  The text to be displayed in the title tags of the page when the menu
+	 *                                   is selected.
+	 * @param string        $menu_title  The text to be used for the menu.
+	 * @param string        $capability  The capability required for this menu to be displayed to the user.
+	 * @param string        $menu_slug   The slug name to refer to this menu by. Should be unique for this menu
+	 *                                   and only include lowercase alphanumeric, dashes, and underscores characters
+	 *                                   to be compatible with sanitize_key().
+	 * @param callable|null $function    The function to be called to output the content for this page.
+	 * @param int|null      $position    One of the POSITION_* tiers; any other value is ignored. Leave empty typically.
+	 * @param array         $args        Optional. Visibility declaration for this item:
+	 *                                   - 'product' (string) My Jetpack product slug whose activation gates the item.
+	 *                                   - 'module'  (string) Jetpack module name, for items with no product class.
+	 *                                   - 'key'     (string) The name hosts use for this item in the visibility
+	 *                                                        filter. Declare one on every item; see get_item_key().
+	 *                                   An item that declares no gate is always shown.
+	 *
+	 * @return string The resulting page's hook_suffix
+	 */
+	public static function add_menu( $page_title, $menu_title, $capability, $menu_slug, $function, $position = null, $args = array() ) {
+		self::init();
+
+		/*
+		 * Anything but a tier would opt the item out of the alphabetical order, so treat it as omitted.
+		 * @todo Add _doing_it_wrong() here after December 2026. Until all our own plugins ship tier-only
+		 * positions, it would have the latest release of one Jetpack plugin warning about another.
+		 */
+		$position = is_numeric( $position ) && in_array( (int) $position, self::CALLER_POSITIONS, true ) ? (int) $position : null;
+
+		self::$menu_items[] = compact( 'page_title', 'menu_title', 'capability', 'menu_slug', 'function', 'position', 'args' );
+
+		/**
+		 * Let's return the page hook so consumers can use.
+		 * Pages normally sit under the Jetpack top level menu page, so we can hardcode the first part of the string.
+		 * Using get_plugin_page_hookname here won't work because the top level page is not registered yet.
+		 */
+		$hook = 'jetpack_page_' . $menu_slug;
+
+		// Core names the page admin_page_<slug> instead when the user has no Jetpack top-level menu.
+		foreach ( array( $hook, 'admin_page_' . $menu_slug ) as $page_hook ) {
+			// Track the page hook so the design-tokens stylesheet can be scoped to it.
+			self::$page_hooks[] = $page_hook;
+
+			// Hide WordPress core admin notices on this Jetpack page. The load-<hook>
+			// action only fires when the matching screen is being rendered, so this
+			// stays scoped to Jetpack pages and reaches every page registered here.
+			add_action( 'load-' . $page_hook, array( __CLASS__, 'hide_core_admin_notices' ) );
+			add_action( 'load-' . $page_hook . '-network', array( __CLASS__, 'hide_core_admin_notices' ) );
+		}
+
+		return $hook;
+	}
+
+	/**
+	 * Enqueues the stylesheet that hides WordPress core admin notices on the current Jetpack page.
+	 *
+	 * Hooked from the page's load-<hook> action so it only runs on Jetpack screens. That action
+	 * runs before admin_enqueue_scripts, so the handle is queued in time to be printed.
+	 *
+	 * @return void
+	 */
+	public static function hide_core_admin_notices() {
+		// wp_add_inline_style() appends, so the CSS is attached only while the handle is new to the request.
+		if ( ! wp_style_is( self::HIDE_CORE_NOTICES_HANDLE, 'registered' ) ) {
+			wp_register_style( self::HIDE_CORE_NOTICES_HANDLE, false, array(), self::PACKAGE_VERSION );
+			wp_add_inline_style( self::HIDE_CORE_NOTICES_HANDLE, self::get_hide_core_admin_notices_styles() );
+		}
+
+		wp_enqueue_style( self::HIDE_CORE_NOTICES_HANDLE );
+	}
+
+	/**
+	 * Enqueues the CSS that hides WordPress core admin notices.
+	 *
+	 * Callers must run this before WordPress flushes the style queue in
+	 * print_admin_styles() (admin_print_styles, priority 20). Later than that,
+	 * the handle is never printed. The previous admin_print_styles priority-10
+	 * hook still works.
+	 *
+	 * @deprecated 0.10.0 Use hide_core_admin_notices(), which enqueues the CSS.
+	 *
+	 * @return void
+	 */
+	public static function print_hide_core_admin_notices_style() {
+		_deprecated_function( __METHOD__, 'admin-ui-0.10.0', __CLASS__ . '::hide_core_admin_notices' );
+		self::hide_core_admin_notices();
+	}
+
+	/**
+	 * Gets the CSS that hides WordPress core admin notices.
+	 *
+	 * We only target direct children of #wpbody-content (where core renders notices via the
+	 * admin_notices / all_admin_notices hooks). This intentionally leaves JITMs untouched —
+	 * they output `.jetpack-jitm-message`, not `.notice` — and leaves in-app/React notices
+	 * untouched, since those render deeper inside `.wrap`. The CSS rides on a source-less
+	 * handle rather than a build asset so it also reaches older Jetpack pages that ship no
+	 * stylesheet of their own.
+	 *
+	 * @return string CSS rules.
+	 */
+	private static function get_hide_core_admin_notices_styles() {
+		return '
+		#wpbody-content > .notice,
+		#wpbody-content > .update-nag,
+		#wpbody-content > .updated,
+		#wpbody-content > .error { display: none !important; }
+		';
+	}
+
+	/**
+	 * Sets the callback that resolves a menu item's declared gate.
+	 *
+	 * The callback receives the item's $args array and returns true (gate satisfied),
+	 * false (not satisfied), or null when it cannot answer — an unknown product slug,
+	 * for instance. Null is treated as satisfied, so a gate this package cannot resolve
+	 * never removes a menu item.
+	 *
+	 * This is the seam My Jetpack fills. Hosts wanting to shape the sidebar should use the
+	 * `jetpack_admin_menu_visibility` filter instead, which takes precedence: an item the
+	 * filter names is never put to this callback at all.
+	 *
+	 * @param callable|null $resolver Resolver callback, or null to clear it.
+	 * @return void
+	 */
+	public static function set_visibility_resolver( $resolver ) {
+		self::$visibility_resolver = $resolver;
+	}
+
+	/**
+	 * Takes hidden items out of the sidebar before it renders.
+	 *
+	 * Runs on admin_head, after core's access check has already resolved the current page,
+	 * so a hidden item's page stays reachable while its entry disappears.
+	 *
+	 * @return void
+	 */
+	public static function remove_hidden_menu_items() {
+		foreach ( self::$hidden_menu_slugs as $menu_slug ) {
+			remove_submenu_page( 'jetpack', plugin_basename( $menu_slug ) );
+		}
+
+		foreach ( self::$hidden_top_level_slugs as $menu_slug ) {
+			remove_menu_page( plugin_basename( $menu_slug ) );
+		}
+	}
+
+	/**
+	 * Returns the name a host uses for a menu item in the visibility filter.
+	 *
+	 * The menu slug is only a fallback. It is the wrong thing to hand a host as an identifier:
+	 * several items register a URL as their slug, Blaze's is filterable, and VideoPress swaps
+	 * between two slugs depending on whether the module is active — so a host naming one of
+	 * them is naming a moving target, or only half an item.
+	 *
+	 * @param array $menu_item A registered menu item.
+	 * @return string
+	 */
+	private static function get_item_key( array $menu_item ) {
+		if ( ! empty( $menu_item['args']['key'] ) ) {
+			return (string) $menu_item['args']['key'];
+		}
+
+		return (string) $menu_item['menu_slug'];
+	}
+
+	/**
+	 * Builds the item => state map and hands it to hosts to amend.
+	 *
+	 * @return array Map of item key to one of the VISIBILITY_* states.
+	 */
+	private static function get_visibility_states() {
+		// This filter is one a policy feeds, and nothing else need have read the policy this request.
+		if ( method_exists( Feature_Policy::class, 'ensure_hooks' ) ) {
+			Feature_Policy::ensure_hooks();
+		}
+
+		$states = array();
+		$items  = array_merge( self::$menu_items, self::$top_level_items );
+
+		foreach ( $items as $menu_item ) {
+			$states[ self::get_item_key( $menu_item ) ] = self::VISIBILITY_DEFAULT;
+		}
+
+		/**
+		 * Filters which Jetpack items appear in the wp-admin sidebar.
+		 *
+		 * Governs the sidebar entry only — a hidden item's page stays reachable by URL, so this
+		 * is not an access control. States: 'default' follows the item's feature, 'visible' shows it, 'hidden' removes it.
+		 *
+		 * @since 0.12.0
+		 *
+		 * @param array $states     Map of item key (menu slug unless the item declared one) to state.
+		 * @param array $menu_items The registered menu items, for context.
+		 */
+		$states = apply_filters( 'jetpack_admin_menu_visibility', $states, $items );
+
+		return is_array( $states ) ? $states : array();
+	}
+
+	/**
+	 * Decides whether a single menu item should appear in the sidebar.
+	 *
+	 * @param array $menu_item  A registered menu item.
+	 * @param array $visibility The resolved state map from get_visibility_states().
+	 * @return bool
+	 */
+	private static function is_menu_item_visible( array $menu_item, array $visibility ) {
+		$key   = self::get_item_key( $menu_item );
+		$state = $visibility[ $key ] ?? self::VISIBILITY_DEFAULT;
+
+		if ( self::VISIBILITY_HIDDEN === $state ) {
+			return false;
+		}
+
+		if ( self::VISIBILITY_VISIBLE === $state ) {
+			return true;
+		}
+
+		return self::is_gate_satisfied( $menu_item['args'] ?? array() );
+	}
+
+	/**
+	 * Asks the resolver whether an item's declared gate is satisfied.
+	 *
+	 * Everything here fails open. An item that declares no gate, a site with no resolver
+	 * registered, and a gate the resolver does not recognize all keep the item in the
+	 * sidebar, so adopting this mechanism cannot remove an item nobody asked it to.
+	 *
+	 * @param array $args The item's visibility declaration.
+	 * @return bool
+	 */
+	private static function is_gate_satisfied( array $args ) {
+		if ( ! isset( $args['product'] ) && ! isset( $args['module'] ) ) {
+			return true;
+		}
+
+		if ( ! is_callable( self::$visibility_resolver ) ) {
+			return true;
+		}
+
+		$resolved = call_user_func( self::$visibility_resolver, $args );
+
+		return null === $resolved ? true : (bool) $resolved;
+	}
+
+	/**
+	 * Removes an already added submenu
+	 *
+	 * @param string $menu_slug   The slug of the submenu to remove.
+	 *
+	 * @return array|false The removed submenu on success, false if not found.
+	 */
+	public static function remove_menu( $menu_slug ) {
+
+		foreach ( self::$menu_items as $index => $menu_item ) {
+			if ( $menu_item['menu_slug'] === $menu_slug ) {
+				unset( self::$menu_items[ $index ] );
+
+				return $menu_item;
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * Gets the slug for the first item under the Jetpack top level menu
+	 *
+	 * Skips hidden items rather than reading $submenu alone, because callers on admin_enqueue_scripts
+	 * and outside wp-admin ask before — or without — the admin_head pass that drops them.
+	 *
+	 * @return string|null
+	 */
+	public static function get_top_level_menu_item_slug() {
+		global $submenu;
+
+		if ( empty( $submenu['jetpack'] ) ) {
+			return null;
+		}
+
+		$hidden = array_map( 'plugin_basename', self::$hidden_menu_slugs );
+
+		foreach ( $submenu['jetpack'] as $item ) {
+			if ( isset( $item[2] ) && ! in_array( $item[2], $hidden, true ) ) {
+				return $item[2];
+			}
+		}
+
+		return null;
+	}
+
+	/**
+	 * Gets the URL for the first item under the Jetpack top level menu
+	 *
+	 * @param string $fallback If Jetpack menu is not there or no children is found, return this fallback instead. Default to admin_url().
+	 * @return string
+	 */
+	public static function get_top_level_menu_item_url( $fallback = false ) {
+		$slug = self::get_top_level_menu_item_slug();
+
+		if ( $slug ) {
+			$url = menu_page_url( $slug, false );
+			return $url;
+		}
+
+		$url = $fallback ? $fallback : admin_url();
+		return $url;
+	}
+
+	/**
+	 * Checks whether the current site should show the upgrade menu item.
+	 *
+	 * The upgrade menu is only shown to administrators on free-plan sites
+	 * that are not hosted on WordPress.com.
+	 *
+	 * @return bool True if the upgrade menu should be shown.
+	 */
+	private static function should_show_upgrade_menu() {
+
+		// Only show to administrators.
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return false;
+		}
+
+		// Don't show upsells on WordPress.com platform.
+		if ( class_exists( '\Automattic\Jetpack\Status\Host' ) ) {
+			$host = new \Automattic\Jetpack\Status\Host();
+			if ( $host->is_wpcom_platform() ) {
+				return false;
+			}
+		}
+
+		// Don't show upsells in offline/development mode.
+		if ( class_exists( '\Automattic\Jetpack\Status' ) ) {
+			$status = new \Automattic\Jetpack\Status();
+			if ( $status->is_offline_mode() ) {
+				return false;
+			}
+		}
+
+		// Only show after the site and current user are connected.
+		if ( ! self::is_site_and_user_connected() ) {
+			return false;
+		}
+
+		// Only show to free-plan sites.
+		return self::is_free_plan();
+	}
+
+	/**
+	 * Checks whether the site and current user are connected to WordPress.com.
+	 *
+	 * @return bool True if site and current user are connected.
+	 */
+	private static function is_site_and_user_connected() {
+		$connection_manager = self::$connection_manager;
+		if ( ! $connection_manager && class_exists( '\Automattic\Jetpack\Connection\Manager' ) ) {
+			$connection_manager       = new \Automattic\Jetpack\Connection\Manager();
+			self::$connection_manager = $connection_manager;
+		}
+
+		if (
+			$connection_manager
+			&& is_callable( array( $connection_manager, 'is_connected' ) )
+			&& is_callable( array( $connection_manager, 'is_user_connected' ) )
+		) {
+			return (bool) $connection_manager->is_connected()
+				&& (bool) $connection_manager->is_user_connected( get_current_user_id() );
+		}
+
+		return false;
+	}
+
+	/**
+	 * Sets the connection manager dependency; used by tests.
+	 *
+	 * @param object|null $connection_manager Connection manager object.
+	 * @return void
+	 */
+	public static function set_connection_manager( $connection_manager ) {
+		self::$connection_manager = $connection_manager;
+	}
+
+	/**
+	 * Checks whether the current site is on a free Jetpack plan with no active paid license.
+	 *
+	 * @return bool True if the site has no paid plan.
+	 */
+	private static function is_free_plan() {
+		// Check the active plan - use the is_free field or product_slug.
+		$plan = get_option( 'jetpack_active_plan', array() );
+
+		// Back-compat: older plan payloads use class to indicate paid plans.
+		if ( isset( $plan['class'] ) && 'free' !== $plan['class'] ) {
+			return false;
+		}
+
+		// If the plan explicitly says it's not free, trust that.
+		if ( isset( $plan['is_free'] ) && false === $plan['is_free'] ) {
+			return false;
+		}
+
+		// Check if the product slug indicates a paid plan.
+		if ( isset( $plan['product_slug'] ) && 'jetpack_free' !== $plan['product_slug'] ) {
+			return false;
+		}
+
+		// Also check for site products (licenses can add products without changing plan).
+		$products = get_option( 'jetpack_site_products', array() );
+		if ( ! empty( $products ) && is_array( $products ) ) {
+			return false;
+		}
+
+		return true;
+	}
+
+	/**
+	 * Conditionally adds an "Upgrade Jetpack" submenu item for free-plan sites.
+	 *
+	 * Only shown to users with manage_options capability on self-hosted sites without a paid Jetpack plan or license.
+	 *
+	 * @return void
+	 */
+	private static function maybe_add_upgrade_menu_item() {
+		if ( ! self::should_show_upgrade_menu() ) {
+			return;
+		}
+
+		$upgrade_url = class_exists( '\Automattic\Jetpack\Redirect' )
+			? \Automattic\Jetpack\Redirect::get_url( self::UPGRADE_MENU_SLUG )
+			: self::UPGRADE_MENU_FALLBACK_URL;
+
+		$menu_title = esc_html__( 'Upgrade Jetpack', 'jetpack-admin-ui' );
+
+		add_submenu_page(
+			'jetpack',
+			$menu_title,
+			$menu_title,
+			'manage_options',
+			esc_url( $upgrade_url ),
+			null, // @phan-suppress-current-line PhanTypeMismatchArgumentProbablyReal -- Core should ideally document null for no-callback arg. https://core.trac.wordpress.org/ticket/52539.
+			self::POSITION_UPGRADE
+		);
+
+		// Add a CSS class to the <li> element so styles can target it precisely.
+		global $submenu;
+		if ( ! empty( $submenu['jetpack'] ) ) {
+			foreach ( $submenu['jetpack'] as $index => $item ) {
+				if ( isset( $item[2] ) && false !== strpos( $item[2], self::UPGRADE_MENU_SLUG ) ) {
+					// phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited
+					$submenu['jetpack'][ $index ][4] = ( ! empty( $item[4] ) ? $item[4] . ' ' : '' ) . self::UPGRADE_MENU_SLUG;
+					break;
+				}
+			}
+		}
+	}
+
+	/**
+	 * Enqueues admin styles for the "Upgrade Jetpack" menu item.
+	 *
+	 * The sidebar menu is visible on every admin page, so styles load globally.
+	 * Only enqueues for free-plan sites on self-hosted installs.
+	 *
+	 * @return void
+	 */
+	public static function add_upgrade_menu_item_styles() {
+		if ( ! self::should_show_upgrade_menu() ) {
+			return;
+		}
+
+		$asset_file = dirname( __DIR__ ) . '/build/admin-ui-upgrade-menu.asset.php';
+		$asset      = file_exists( $asset_file ) ? require $asset_file : array();
+
+		wp_enqueue_style(
+			'jetpack-admin-ui-upgrade-menu',
+			plugins_url( '../build/admin-ui-upgrade-menu.css', __FILE__ ),
+			$asset['dependencies'] ?? array(),
+			$asset['version'] ?? self::PACKAGE_VERSION
+		);
+
+		self::enqueue_upgrade_menu_tracks_script( $asset );
+	}
+
+	/**
+	 * Enqueues WPDS design tokens so `var(--wpds-*)` values resolve at runtime.
+	 *
+	 * Prefer Core/Gutenberg's `wp-theme` style when registered; otherwise ship
+	 * the bundled copy. The caller scopes the call to the right page(s).
+	 *
+	 * @return void
+	 */
+	public static function enqueue_design_tokens() {
+		// Registered since WP 7.1 (and by Gutenberg):
+		// https://make.wordpress.org/core/2026/07/31/design-system-theming-in-wordpress-7-1/
+		if ( wp_style_is( 'wp-theme', 'registered' ) ) {
+			wp_enqueue_style( 'wp-theme' );
+			return;
+		}
+
+		// @todo Remove this, the called function, and the webpack entrypoint it registers when WP 7.1 is the minimum version.
+		self::register_design_tokens_style();
+		wp_enqueue_style( self::DESIGN_TOKENS_HANDLE );
+	}
+
+	/**
+	 * Registers the bundled, token-only WPDS design-tokens stylesheet.
+	 *
+	 * Used only when `wp-theme` is not registered. Safe to call repeatedly:
+	 * wp_register_style() is a no-op once the handle is registered.
+	 *
+	 * @return void
+	 */
+	private static function register_design_tokens_style() {
+		if ( wp_style_is( self::DESIGN_TOKENS_HANDLE, 'registered' ) ) {
+			return;
+		}
+
+		$asset_file = dirname( __DIR__ ) . '/build/design-tokens.asset.php';
+		$asset      = file_exists( $asset_file ) ? require $asset_file : array();
+
+		wp_register_style(
+			self::DESIGN_TOKENS_HANDLE,
+			plugins_url( '../build/design-tokens.css', __FILE__ ),
+			$asset['dependencies'] ?? array(),
+			$asset['version'] ?? self::PACKAGE_VERSION
+		);
+	}
+
+	/**
+	 * Enqueues the design tokens on the pages registered through this class.
+	 *
+	 * This is the admin_enqueue_scripts callback for the modernized Jetpack
+	 * dashboards. Scoped to self::$page_hooks so the tokens load wherever a
+	 * modernized dashboard renders, regardless of plan or connection state; the
+	 * actual enqueue is delegated to the reusable enqueue_design_tokens() API.
+	 *
+	 * @param string $hook_suffix The current admin page's hook suffix.
+	 * @return void
+	 */
+	public static function maybe_enqueue_design_tokens( $hook_suffix ) {
+		if ( ! in_array( $hook_suffix, self::$page_hooks, true ) ) {
+			return;
+		}
+
+		self::enqueue_design_tokens();
+	}
+
+	/**
+	 * Enqueues Tracks for the upgrade submenu item.
+	 *
+	 * @param array $asset Parsed contents of admin-ui-upgrade-menu.asset.php.
+	 * @return void
+	 */
+	private static function enqueue_upgrade_menu_tracks_script( $asset ) {
+		if ( ! class_exists( '\Automattic\Jetpack\Tracking' ) ) {
+			return;
+		}
+
+		Tracking::register_tracks_functions_scripts( true );
+
+		wp_enqueue_script(
+			'jetpack-admin-ui-upgrade-menu-tracking',
+			plugins_url( '../build/admin-ui-upgrade-menu-tracking.js', __FILE__ ),
+			$asset['dependencies'] ?? array(),
+			$asset['version'] ?? self::PACKAGE_VERSION,
+			true
+		);
+
+		$current_screen   = get_current_screen();
+		$is_admin         = current_user_can( 'jetpack_disconnect' );
+		$site_id          = class_exists( 'Jetpack_Options' ) ? Jetpack_Options::get_option( 'id' ) : null;
+		$tracks_user_data = class_exists( 'Jetpack_Tracks_Client' ) ? Jetpack_Tracks_Client::get_connected_user_tracks_identity() : null;
+
+		wp_localize_script(
+			'jetpack-admin-ui-upgrade-menu-tracking',
+			'jetpackAdminUiUpgradeMenu',
+			array(
+				'menuItemClass'   => self::UPGRADE_MENU_SLUG,
+				'tracksUserData'  => $tracks_user_data,
+				'tracksEventData' => array(
+					'is_admin'       => $is_admin,
+					'current_screen' => $current_screen ? $current_screen->id : false,
+					'blog_id'        => $site_id,
+				),
+			)
+		);
+	}
+}
