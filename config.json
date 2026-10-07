@@ -169,6 +169,19 @@
       "1.4": "1.4.1"
     }
   },
+  "clipisode": {
+    "repo": "https://github.com/Automattic/clipisode",
+    "folderPrefix": "vip-integrations/clipisode-",
+    "versionPrefix": "v",
+    "lowestVersion": "0.1",
+    "releaseZipFileName": "clipisode",
+    "releaseZipRootFolder": "clipisode",
+    "skip": [],
+    "ignore": [],
+    "current": {
+      "0.1": "0.1.0"
+    }
+  },
   "wordpress-mcp": {
     "repo": "https://github.com/WordPress/mcp-adapter",
     "folderPrefix": "vip-integrations/wordpress-mcp-",
