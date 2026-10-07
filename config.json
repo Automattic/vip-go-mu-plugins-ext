@@ -200,5 +200,15 @@
       "0.8": "0.8.0",
       "0.9": "0.9.0"
     }
+  },
+  "shareadraft": {
+    "repo": "https://github.com/Automattic/shareadraft",
+    "folderPrefix": "vip-integrations/shareadraft-",
+    "lowestVersion": "2.0",
+    "releaseZipFileName": "shareadraft-{version}-vip",
+    "releaseZipRootFolder": "shareadraft",
+    "skip": [],
+    "ignore": [],
+    "current": {}
   }
 }
