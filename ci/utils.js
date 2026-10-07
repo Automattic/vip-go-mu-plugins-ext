@@ -185,10 +185,22 @@ function addVersionPrefix(version, prefix = '') {
     return `${prefix}${version}`;
 }
 
+/**
+ * Resolves a release zip file name, for plugins whose release asset names include the version
+ *
+ * @param {string} releaseZipFileName File name without ".zip", optionally containing "{version}"
+ * @param {string} version Version string without prefix
+ * @returns {string} File name with "{version}" replaced
+ */
+function resolveReleaseZipFileName(releaseZipFileName, version) {
+    return releaseZipFileName.replaceAll('{version}', version);
+}
+
 module.exports = {
     compareVersions,
     isBeta,
     addVersionPrefix,
+    resolveReleaseZipFileName,
     fetchAllTags,
     parseVersionString,
     discoverPluginVersions

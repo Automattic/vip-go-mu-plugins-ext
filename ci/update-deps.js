@@ -4,7 +4,7 @@ const { default: axios } = require("axios");
 const fs = require("fs");
 const path = require("path");
 const { execSync, execFileSync } = require("child_process");
-const { compareVersions, addVersionPrefix, discoverPluginVersions } = require("./utils");
+const { compareVersions, addVersionPrefix, resolveReleaseZipFileName, discoverPluginVersions } = require("./utils");
 const os = require("os");
 
 // Resolve the path to config.json relative to the script's location
@@ -42,7 +42,7 @@ function getPrefixedVersion(plugin, version) {
 async function downloadReleaseZip(plugin, version, folder) {
   const config = globalConfig[plugin];
   const repoUrl = config.repo;
-  const releaseZipFileName = config.releaseZipFileName;
+  const releaseZipFileName = resolveReleaseZipFileName(config.releaseZipFileName, version);
   const releaseZipRootFolder = config.releaseZipRootFolder;
   const prefixedVersion = getPrefixedVersion(plugin, version);
   const zipUrl = `${repoUrl}/releases/download/${prefixedVersion}/${releaseZipFileName}.zip`;

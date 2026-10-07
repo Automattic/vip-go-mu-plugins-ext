@@ -4,6 +4,7 @@ const {
     compareVersions,
     isBeta,
     parseVersionString,
+    resolveReleaseZipFileName,
     fetchAllTags
 } = require( '../utils' );
 
@@ -132,5 +133,15 @@ describe( 'parseVersionString()', () => {
         assert.strictEqual( v2.compare( v1 ), 1 );  // v2 > v1
         assert.strictEqual( v1.compare( v1 ), 0 );  // v1 = v1
         assert.strictEqual( v2.compare( v3 ), -1 ); // v2 < v3
+    });
+});
+
+describe( 'resolveReleaseZipFileName()', () => {
+    it( 'should replace the version placeholder', () => {
+        assert.strictEqual( resolveReleaseZipFileName( 'shareadraft-{version}-vip', '2.0.0' ), 'shareadraft-2.0.0-vip' );
+    });
+
+    it( 'should leave a name without the placeholder unchanged', () => {
+        assert.strictEqual( resolveReleaseZipFileName( 'safe-publish', '1.4.1' ), 'safe-publish' );
     });
 });
