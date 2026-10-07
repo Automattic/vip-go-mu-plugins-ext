@@ -28,6 +28,10 @@ The [VIP Block Data API](https://github.com/Automattic/vip-block-data-api/) is a
 
 [MCP Adapter](https://github.com/WordPress/mcp-adapter) bridges WordPress abilities to the Model Context Protocol (MCP).
 
+### Clipisode
+
+[Clipisode](https://github.com/Automattic/clipisode) collects, curates, and publishes user-generated video content.
+
 # Automation
 
 ...profit?
