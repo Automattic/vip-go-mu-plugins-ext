@@ -1,1 +1,0 @@
-MLB team SVG logos downloaded from `https://www.mlbstatic.com/team-logos/{teamId}.svg` on 2026-10-06. Team IDs and names were taken from `https://statsapi.mlb.com/api/v1/teams?sportId=1&season=2026`. MLB and club names and logos are trademarks of their respective owners.
