@@ -1,0 +1,21 @@
+{
+  "name": "shareadraft",
+  "version": "2.0.0",
+  "private": "true",
+  "keywords": [],
+  "author": "",
+  "license": "GPL-2.0-or-later",
+  "description": "",
+  "devDependencies": {
+    "@playwright/test": "^1.45.3",
+    "@types/node": "^26.1.2",
+    "@wordpress/scripts": "^36.0.0"
+  },
+  "scripts": {
+    "build": "wp-scripts build src/index.js src/admin.js",
+    "lint:js": "wp-scripts lint-js src",
+    "start": "wp-scripts start src/index.js src/admin.js",
+    "test": "playwright test",
+    "test:ui": "playwright test --ui"
+  }
+}

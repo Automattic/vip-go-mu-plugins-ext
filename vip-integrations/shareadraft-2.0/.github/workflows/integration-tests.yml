@@ -1,0 +1,130 @@
+name: Integration Testing
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  integration-tests:
+    name: "WP ${{ matrix.config.wp }}, multisite: ${{ matrix.config.ms }}, PHP: ${{ matrix.config.php }}"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          # VIP platform baseline: WordPress 7.1 (latest) and 6.9.x on PHP 8.2-8.5.
+          - { wp: 6.9.x,   ms: 'yes', php: '8.2' }
+          - { wp: 6.9.x,   ms: 'no',  php: '8.2' }
+          - { wp: latest,  ms: 'no',  php: '8.2', coverage: 'yes' }
+          - { wp: latest,  ms: 'yes', php: '8.2', coverage: 'yes' }
+
+          - { wp: 6.9.x,   ms: 'yes', php: '8.3' }
+          - { wp: 6.9.x,   ms: 'no',  php: '8.3' }
+          - { wp: latest,  ms: 'no',  php: '8.3' }
+          - { wp: latest,  ms: 'yes', php: '8.3' }
+
+          - { wp: 6.9.x,   ms: 'yes', php: '8.4' }
+          - { wp: 6.9.x,   ms: 'no',  php: '8.4' }
+          - { wp: latest,  ms: 'no',  php: '8.4' }
+          - { wp: latest,  ms: 'yes', php: '8.4' }
+
+          - { wp: 6.9.x,   ms: 'yes', php: '8.5' }
+          - { wp: 6.9.x,   ms: 'no',  php: '8.5' }
+          - { wp: latest,  ms: 'no',  php: '8.5' }
+          - { wp: latest,  ms: 'yes', php: '8.5' }
+
+          - { wp: nightly, ms: 'no',  php: '8.5' }
+          - { wp: nightly, ms: 'yes', php: '8.5' }
+    services:
+      mysql:
+        image: mariadb:lts@sha256:759869cb6f003234a95c6384cdee245b4bce7de26913fe607a8110362c0c007d
+        ports:
+          - "3306:3306"
+        env:
+          MYSQL_ROOT_PASSWORD: wordpress
+          MARIADB_INITDB_SKIP_TZINFO: 1
+          MYSQL_USER: wordpress
+          MYSQL_PASSWORD: wordpress
+          MYSQL_DATABASE: wordpress_test
+    steps:
+      - name: Check out source code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install subversion
+        run: sudo apt-get update && sudo apt-get install subversion
+
+      - name: Decide whether to enable coverage
+        id: coverage
+        run: |
+          if [ "${{ matrix.config.coverage }}" = "yes" ]; then
+            echo coverage=pcov >> "${GITHUB_OUTPUT}"
+            echo 'ini=pcov.directory=inc, pcov.exclude="~/(vendor|node_modules)/~"' >> "${GITHUB_OUTPUT}"
+          else
+            echo coverage=none >> "${GITHUB_OUTPUT}"
+          fi
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          coverage: ${{ steps.coverage.outputs.coverage }}
+          ini-values: ${{ steps.coverage.outputs.ini }}
+          php-version: ${{ matrix.config.php }}
+        env:
+          fail-fast: 'true'
+
+      - name: Install PHP dependencies
+        uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: lts/*
+          cache: npm
+
+      # build/ is not committed, and EditorAssetsTest asserts the enqueue
+      # against the real built asset file, so build it here.
+      - name: Build plugin assets
+        run: |
+          npm ci
+          npm run build
+
+      - name: Set up WordPress and WordPress Test Library
+        uses: sjinks/setup-wordpress-test-library@9726426f2a40656274560a0394718177f8adb424 # v3.0.0
+        with:
+          version: ${{ matrix.config.wp }}
+
+      - name: Set up multisite mode
+        run: echo "WP_MULTISITE=1" >> $GITHUB_ENV
+        if: matrix.config.ms == 'yes'
+
+      - name: Verify MariaDB connection
+        run: |
+          while ! mysqladmin ping -h 127.0.0.1 -P ${{ job.services.mysql.ports[3306] }} --silent; do
+            sleep 1
+          done
+        timeout-minutes: 1
+
+      - name: Run integration tests
+        run: |
+          if [ "${{ steps.coverage.outputs.coverage }}" != 'none' ]; then
+            CMD=test:coverage
+          else
+            CMD=test:integration
+          fi
+          composer "${CMD}" -- --order-by=random
