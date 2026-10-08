@@ -222,6 +222,8 @@
     "releaseZipRootFolder": "shareadraft",
     "skip": [],
     "ignore": [],
-    "current": {}
+    "current": {
+      "2.0": "2.0.0"
+    }
   }
 }
