@@ -1,0 +1,130 @@
+<?php
+/**
+ * Jetpack AI Chat.
+ *
+ * @since 12.1
+ *
+ * @package automattic/jetpack
+ */
+
+namespace Automattic\Jetpack\Extensions\AIChat;
+
+use Automattic\Jetpack\Blocks;
+use Automattic\Jetpack\Search\Module_Control as Search_Module_Control;
+use Automattic\Jetpack\Search\Plan as Search_Plan;
+use Automattic\Jetpack\Search\Search_Blocks;
+use Jetpack_Gutenberg;
+
+if ( ! defined( 'ABSPATH' ) ) {
+	exit( 0 );
+}
+
+// Required directly rather than relying on the plugin bootstrap: on
+// WordPress.com Simple the extension files load through wpcom's own loader
+// and load-jetpack.php never runs. Without it the is_ai_enabled() master-gate
+// check below would fatal there.
+require_once __DIR__ . '/../../../_inc/lib/class-jetpack-ai-settings.php';
+
+/**
+ * Registers our block for use in Gutenberg
+ * This is done via an action so that we can disable
+ * registration if we need to.
+ */
+function register_block() {
+	if ( ! \Jetpack_AI_Settings::site_is_connected() ) {
+		return;
+	}
+
+	// The block stays registered while Jetpack AI is off so the render callback
+	// runs and can output nothing. Otherwise WordPress echoes the saved markup,
+	// an empty div, wherever the block sits.
+	Blocks::jetpack_register_block(
+		__DIR__,
+		array( 'render_callback' => __NAMESPACE__ . '\load_assets' )
+	);
+
+	// Registration queues its own "available" mark on this action, so run after it.
+	if ( ! \Jetpack_AI_Settings::is_ai_enabled() ) {
+		add_action(
+			'jetpack_register_gutenberg_extensions',
+			static function () {
+				Jetpack_Gutenberg::set_extension_unavailable( 'ai-chat', 'ai_disabled' );
+			},
+			20
+		);
+	}
+}
+add_action( 'init', __NAMESPACE__ . '\register_block' );
+
+/**
+ * Jetpack AI Paragraph block registration/dependency declaration.
+ *
+ * @param array $attr Array containing the Jetpack AI Chat block attributes.
+ *
+ * @return string
+ */
+function load_assets( $attr ) {
+	// With Jetpack AI off there is nothing to ask, so render nothing rather
+	// than an empty container.
+	if ( ! \Jetpack_AI_Settings::is_ai_enabled() ) {
+		return '';
+	}
+
+	/*
+	 * Enqueue necessary scripts and styles.
+	 */
+	Jetpack_Gutenberg::load_assets_as_required( __DIR__ );
+
+	$ask_button_label = $attr['askButtonLabel'] ?? __( 'Ask', 'jetpack' );
+	$placeholder      = $attr['placeholder'] ?? __( 'Ask a question about this site.', 'jetpack' );
+
+	if ( defined( 'IS_WPCOM' ) && IS_WPCOM ) {
+		$blog_id = get_current_blog_id();
+		$type    = 'wpcom'; // WPCOM simple sites.
+	} else {
+		$blog_id = \Jetpack_Options::get_option( 'id' );
+		$type    = 'jetpack'; // Self-hosted (includes Atomic)
+	}
+
+	return sprintf(
+		'<div class="%1$s" data-ask-button-label="%2$s" id="jetpack-ai-chat" data-blog-id="%3$d" data-blog-type="%4$s" data-placeholder="%5$s" data-show-copy="%6$d" data-show-feedback="%7$d" data-show-sources="%8$d"></div>',
+		esc_attr( Blocks::classes( Blocks::get_block_feature( __DIR__ ), $attr ) ),
+		esc_attr( $ask_button_label ),
+		esc_attr( $blog_id ),
+		esc_attr( $type ),
+		esc_attr( $placeholder ),
+		esc_attr( isset( $attr['showCopy'] ) ? ( $attr['showCopy'] ? 1 : 0 ) : 1 ),
+		esc_attr( isset( $attr['showFeedback'] ) ? ( $attr['showFeedback'] ? 1 : 0 ) : 1 ),
+		esc_attr( isset( $attr['showSources'] ) ? ( $attr['showSources'] ? 1 : 0 ) : 1 )
+	);
+}
+
+/**
+ * Add the initial state for the AI Chat block.
+ */
+function add_ai_chat_block_data() {
+	// Only relevant to the editor right now.
+	if ( ! is_admin() ) {
+		return;
+	}
+	$search        = new Search_Module_Control();
+	$plan          = new Search_Plan();
+	$initial_state = array(
+		'jetpackSettings' => array(
+			// `module_active` reflects whether the Jetpack Search module is on, which is
+			// what controls site indexing — independent of the chosen front-end experience
+			// (Overlay / Theme / Inline / Embedded). The AI Chat block only needs the
+			// index, so it gates on this rather than on `instant_search_enabled`.
+			'module_active'          => $search->is_active(),
+			'instant_search_enabled' => $search->is_instant_search_enabled(),
+			'plan_supports_search'   => $plan->supports_instant_search(),
+			'supports_paid_search'   => Search_Blocks::supports_paid_search(),
+		),
+	);
+	wp_add_inline_script(
+		'jetpack-blocks-editor',
+		'var Jetpack_AIChatBlock = ' . wp_json_encode( $initial_state, JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP ) . ';',
+		'before'
+	);
+}
+add_action( 'enqueue_block_assets', __NAMESPACE__ . '\add_ai_chat_block_data', 11 );
