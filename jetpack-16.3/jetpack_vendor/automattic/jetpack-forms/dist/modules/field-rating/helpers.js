@@ -1,0 +1,1 @@
+function n(n){return"rating"===n?.type?{rating:n.rating??0,maxRating:n.maxRating??5,iconStyle:n.iconStyle??"stars"}:null}function t(n){return"rating"===n?.type}function a(n){return t(n)&&n?.displayValue?n.displayValue:null}export{n as getRating,a as getRatingDisplayValue,t as isRatingValue};

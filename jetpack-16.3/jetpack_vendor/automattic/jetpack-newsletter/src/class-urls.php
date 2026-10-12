@@ -1,0 +1,36 @@
+<?php
+/**
+ * URL helper for newsletter settings.
+ *
+ * @package automattic/jetpack-newsletter
+ */
+
+namespace Automattic\Jetpack\Newsletter;
+
+/**
+ * A class responsible for generating newsletter settings URLs.
+ */
+class Urls {
+
+	/**
+	 * Get the URL of the Settings tab of the Newsletter page.
+	 *
+	 * @return string The Settings tab URL.
+	 */
+	public static function get_newsletter_settings_url() {
+		// The page's router reads its route and search only from `p`; a top-level `tab` is ignored.
+		return admin_url( 'admin.php?page=' . Settings::ADMIN_PAGE_SLUG . '&p=' . rawurlencode( '/?tab=settings' ) );
+	}
+
+	/**
+	 * Get the URL of the Subscribers tab of the Newsletter page.
+	 *
+	 * @since 0.17.0
+	 *
+	 * @return string The Subscribers tab URL.
+	 */
+	public static function get_subscribers_url() {
+		// The page's router reads its route and search only from `p`; a top-level `tab` is ignored.
+		return admin_url( 'admin.php?page=' . Settings::ADMIN_PAGE_SLUG . '&p=' . rawurlencode( '/?tab=subscribers' ) );
+	}
+}
