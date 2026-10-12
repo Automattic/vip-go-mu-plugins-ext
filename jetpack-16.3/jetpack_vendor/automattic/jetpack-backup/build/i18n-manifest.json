@@ -1,7 +1,0 @@
-{
-	"bundles": [
-		"build/routes/dashboard/content.js",
-		"build/routes/download/content.js",
-		"build/routes/restore/content.js"
-	]
-}
