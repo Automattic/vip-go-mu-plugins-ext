@@ -1,0 +1,48 @@
+<?php
+/**
+ * The test factories return WP_Error only when fixture creation fails, which
+ * aborts the test anyway, so narrow create() to the ID every test relies on.
+ * Each factory redeclares create() through its own @method tag, so the
+ * override has to sit on the subclasses the tests use as well.
+ */
+
+abstract class WP_UnitTest_Factory_For_Thing {
+	/**
+	 * @param array<string, mixed>      $args
+	 * @param array<string, mixed>|null $generation_definitions
+	 * @return int
+	 */
+	public function create( $args = array(), $generation_definitions = null ) {}
+}
+
+/**
+ * @method int create( array<string, mixed> $args = array(), array<string, mixed>|null $generation_definitions = null )
+ */
+class WP_UnitTest_Factory_For_Post extends WP_UnitTest_Factory_For_Thing {}
+
+/**
+ * @method int create( array<string, mixed> $args = array(), array<string, mixed>|null $generation_definitions = null )
+ */
+class WP_UnitTest_Factory_For_User extends WP_UnitTest_Factory_For_Thing {}
+
+/**
+ * The test library ships an untyped is_ssl() shim for one of its fixtures,
+ * which shadows core's declaration, so restore the core return type.
+ *
+ * @return bool
+ */
+function is_ssl() {}
+
+/**
+ * The mock mailer's sent log, typed with the keys it records.
+ */
+class MockPHPMailer {
+	/** @var list<array{to: array<mixed>, cc: array<mixed>, bcc: array<mixed>, header: string, subject: string, body: string}> */
+	public $mock_sent = array();
+
+	/**
+	 * @param int $index
+	 * @return object{to: array<mixed>, cc: array<mixed>, bcc: array<mixed>, header: string, subject: string, body: string}|false
+	 */
+	public function get_sent( $index = 0 ) {}
+}

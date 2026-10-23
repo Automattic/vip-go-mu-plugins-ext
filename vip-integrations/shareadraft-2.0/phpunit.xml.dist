@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Integration suite: boots a real WordPress test environment to cover the
+  WordPress-coupled adapters (admin, REST controller, telemetry and friends).
+
+  The fast, WordPress-free unit suite lives in phpunit-unit.xml.dist.
+-->
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/9.6/phpunit.xsd" bootstrap="tests/integration/bootstrap.php" colors="true" testdox="true" forceCoversAnnotation="true" beStrictAboutCoversAnnotation="true" beStrictAboutOutputDuringTests="true" beStrictAboutTodoAnnotatedTests="true">
+  <coverage processUncoveredFiles="true">
+    <include>
+      <directory suffix=".php">inc</directory>
+    </include>
+    <exclude>
+      <!-- Processing these as uncovered files loads them, and they extend or
+           call WP-CLI classes that do not exist in the integration
+           environment. Their behaviour is pinned by the Behat suite in
+           features/ instead. -->
+      <directory suffix=".php">inc/cli</directory>
+    </exclude>
+  </coverage>
+  <testsuites>
+    <testsuite name="integration">
+      <directory suffix="Test.php">./tests/integration</directory>
+    </testsuite>
+  </testsuites>
+</phpunit>

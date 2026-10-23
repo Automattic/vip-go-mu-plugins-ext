@@ -1,0 +1,72 @@
+# Files and directories excluded from the distributable ZIP built by
+# .github/workflows/release.yml. Passed to `rsync --exclude-from`, so these are
+# rsync patterns: a leading slash anchors to the plugin root, no slash matches
+# at any depth.
+#
+# What ships is deliberately small: shareadraft.php, vestigial.php,
+# uninstall.php, inc/, build/, languages/, README.md and LICENSE. The VIP
+# handoff manifest goes to VIP in its own package (vip-integration-release.yml),
+# not here. The plugin
+# has no runtime Composer dependencies — inc/autoload.php resolves its own
+# classes — so no vendor/ directory is needed at runtime. WordPress.org assets
+# live in .wordpress-org/ and are deployed separately, not inside the ZIP.
+# CHANGELOG.md stays on GitHub, which the README's Changelog section links to.
+#
+# Adding a new development-only file? Add it here and to .gitattributes, or it
+# ends up in the ZIP or GitHub's source archives.
+
+# Version control and CI
+/.git
+/.github
+/.gitignore
+/.gitattributes
+/.distignore
+
+# Development environments
+/.devcontainer
+/.wp-env
+/.wp-env.json
+/.wpvip
+/.context
+/.wordpress-org
+
+# Sources and fixtures that are compiled or dev-only
+/src
+/tests
+/features
+/fixtures
+/docs
+/vip-manifest.yaml
+/vip-manifest.schema.json
+
+# Dependency manifests and installed dependencies
+/composer.json
+/composer.lock
+/package.json
+/package-lock.json
+/node_modules
+/vendor
+
+# Tooling configuration
+/behat.yml
+/eslint.config.cjs
+/phpcs.xml.dist
+/phpstan.neon.dist
+/phpunit.xml.dist
+/phpunit-unit.xml.dist
+/playwright.config.ts
+/AGENTS.md
+/CLAUDE.md
+/CONTRIBUTING.md
+/CHANGELOG.md
+
+# Build and test artefacts
+/dist
+/coverage
+/.playwright
+/.phpunit.result.cache
+
+# OS cruft
+.DS_Store
+Thumbs.db
+ehthumbs.db

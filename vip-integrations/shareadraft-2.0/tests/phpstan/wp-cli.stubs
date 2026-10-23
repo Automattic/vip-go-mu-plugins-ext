@@ -1,0 +1,99 @@
+<?php
+// WP-CLI surface the inc/cli/ commands touch, until php-stubs/wp-cli-stubs
+// supports WordPress 7 stubs (php-stubs/wp-cli-stubs#24).
+
+namespace {
+	class WP_CLI {
+
+		/**
+		 * @param string                 $name
+		 * @param callable|object|string $callable
+		 * @param array<string, mixed>   $args
+		 * @return bool|null
+		 */
+		public static function add_command( $name, $callable, $args = array() ) {}
+
+		/**
+		 * @param string|\WP_Error $message
+		 * @param bool|int         $exit
+		 * @return void
+		 */
+		public static function error( $message, $exit = true ) {}
+
+		/**
+		 * @param string $message
+		 * @return void
+		 */
+		public static function success( $message ) {}
+
+		/**
+		 * @param string $message
+		 * @return void
+		 */
+		public static function warning( $message ) {}
+
+		/**
+		 * @param string $message
+		 * @return void
+		 */
+		public static function log( $message ) {}
+
+		/**
+		 * @param string $message
+		 * @return void
+		 */
+		public static function line( $message = '' ) {}
+
+		/**
+		 * @param string                     $question
+		 * @param array<string, string|bool> $assoc_args
+		 * @return void
+		 */
+		public static function confirm( $question, $assoc_args = array() ) {}
+	}
+}
+
+namespace WP_CLI {
+	class Formatter {
+
+		/**
+		 * @param array<string, string|bool> $assoc_args
+		 * @param list<string>|string|null   $fields
+		 * @param string|false               $prefix
+		 */
+		public function __construct( &$assoc_args, $fields = null, $prefix = false ) {}
+
+		/**
+		 * @param array<int|string, mixed> $items
+		 * @param bool|list<string>        $ascii_pre_colorized
+		 * @return void
+		 */
+		public function display_items( $items, $ascii_pre_colorized = false ) {}
+	}
+}
+
+namespace WP_CLI\Dispatcher {
+	class CommandNamespace {
+	}
+}
+
+namespace WP_CLI\Fetchers {
+	class User {
+
+		/**
+		 * @param string $arg An id, login, or email; errors out when no user matches.
+		 * @return \WP_User
+		 */
+		public function get_check( $arg ) {}
+	}
+}
+
+namespace WP_CLI\Utils {
+	/**
+	 * @param array<string, string|bool> $assoc_args
+	 * @param string                     $flag
+	 * @param mixed                      $default
+	 * @return mixed
+	 */
+	function get_flag_value( $assoc_args, $flag, $default = null ) {}
+}

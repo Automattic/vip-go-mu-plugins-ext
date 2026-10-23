@@ -1,0 +1,160 @@
+name: VIP Integration Package
+
+# Builds the package handed to WordPress VIP for the Integration Center, and
+# proves it passes `vip-integration validate` as shipped.
+#
+# This is not the WordPress.org ZIP from release.yml. That one strips tests,
+# docs and Composer files, which the VIP handoff rules require, so it fails
+# validation. This package is every tracked file bar .gitignore, plus the built
+# editor assets.
+#
+# It runs in two modes:
+#
+# - By hand, on a release branch before tagging: a dry run. Same checks, same
+#   build, and the package is left as a workflow artefact; nothing is
+#   published. This is the run that can still stop a release.
+# - On a tag: the real run. It also checks the versions match the tag, then
+#   attaches the package to the GitHub Release for handover. A failure here
+#   is only a warning: release.yml and deploy.yml run alongside it from the
+#   same tag push, so WordPress.org has already been deployed.
+on:
+  push:
+    tags:
+      - '*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  cancel-in-progress: false
+  group: ${{ github.workflow }}-${{ github.ref }}
+
+jobs:
+  package:
+    name: Build and validate the VIP package
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out source code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 'lts/*'
+          # No dependency cache: this package goes to VIP for review.
+          package-manager-cache: false
+
+      - name: Check the versions agree
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -eu
+
+          HEADER="$(sed -n 's/^[[:space:]]*\*[[:space:]]*Version:[[:space:]]*//p' shareadraft.php | head -n1 | tr -d '[:space:]')"
+          CONSTANT="$(sed -n "s/.*VIP_SHAREADRAFT_VERSION'[^']*'\([^']*\)'.*/\1/p" shareadraft.php | head -n1)"
+          MANIFEST="$(sed -n 's/^[[:space:]]*plugin_version:[[:space:]]*//p' vip-manifest.yaml | head -n1 | tr -d "[:space:]'\"")"
+
+          # VIP requires the submitted version to match the plugin header. On a
+          # tag, the tag must match too; on a branch, the header is the reference.
+          EXPECTED="$HEADER"
+          if [ "$REF_TYPE" = 'tag' ]; then
+            EXPECTED="${TAG#v}"
+          fi
+
+          FAILED=0
+          for pair in "plugin header:${HEADER}" "VIP_SHAREADRAFT_VERSION:${CONSTANT}" "vip-manifest.yaml plugin_version:${MANIFEST}"; do
+            if [ "${pair#*:}" != "$EXPECTED" ]; then
+              echo "::error::${pair%%:*} is '${pair#*:}' but expected '${EXPECTED}'"
+              FAILED=1
+            fi
+          done
+          [ "$FAILED" -eq 0 ]
+
+          echo "VERSION=${EXPECTED}" >> "$GITHUB_ENV"
+
+      - name: Build editor assets
+        run: |
+          npm ci
+          npm run build
+
+          for f in build/index.js build/index.asset.php build/admin.js build/admin.asset.php; do
+            if [ ! -s "$f" ]; then
+              echo "::error::npm run build did not produce $f"
+              exit 1
+            fi
+          done
+
+      - name: Assemble the package
+        run: |
+          set -eu
+
+          # Tracked files only, so nothing local, cached or installed can slip
+          # in, plus the built assets that are gitignored.
+          mkdir -p dist/shareadraft
+          git ls-files -z | rsync -a --from0 --files-from=- ./ dist/shareadraft/
+          rsync -a build/ dist/shareadraft/build/
+
+          # VIP commits the package into its own git repo, where our
+          # .gitignore would silently drop build/ from that commit.
+          find dist/shareadraft -name .gitignore -type f -delete
+
+          echo "ZIP_PATH=shareadraft-${VERSION}-vip.zip" >> "$GITHUB_ENV"
+
+      - name: Validate the package as shipped
+        working-directory: dist/shareadraft
+        # Pinned, and Dependabot cannot see it, so bump it by hand.
+        run: npx --yes @automattic/vip-integration@0.2.0 validate
+
+      - name: Zip the package
+        run: |
+          ( cd dist && zip -rq "../${ZIP_PATH}" shareadraft )
+          unzip -l "$ZIP_PATH"
+
+      - name: Upload the package
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: shareadraft-vip-package
+          path: ${{ env.ZIP_PATH }}
+          if-no-files-found: error
+
+  # Its own job so the write token never shares a runner with npm ci, the
+  # build, or the conformance checker.
+  attach:
+    name: Attach the package to the GitHub Release
+    needs: package
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download the package
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: shareadraft-vip-package
+
+      - name: Attach the package to the GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -eu
+
+          # release.yml creates the release from the same tag push, in
+          # parallel, so give it a few minutes to appear.
+          for _ in $(seq 1 20); do
+            if gh release view "$TAG" > /dev/null 2>&1; then
+              gh release upload "$TAG" shareadraft-*-vip.zip --clobber
+              exit 0
+            fi
+            sleep 15
+          done
+
+          echo "::error::No GitHub Release for ${TAG} appeared; the package is still available as a workflow artefact."
+          exit 1

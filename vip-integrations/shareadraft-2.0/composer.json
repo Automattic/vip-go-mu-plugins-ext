@@ -1,0 +1,84 @@
+{
+  "name": "automattic/shareadraft",
+  "description": "Share a Draft plugin for sharing draft content with external stakeholders.",
+  "license": "GPL-2.0-or-later",
+  "type": "wordpress-plugin",
+  "require": {
+    "php": "^8.2"
+  },
+  "require-dev": {
+    "automattic/behat-wp-env-context": "^0.1.0",
+    "automattic/vipwpcs": "^3",
+    "behat/behat": "^3.7",
+    "johnpbloch/wordpress-core": "^6.9 || ^7.0",
+    "php-stubs/wordpress-stubs": "^6.9 || ^7.0",
+    "phpcompatibility/phpcompatibility-wp": "^2",
+    "phpstan/extension-installer": "^1.4",
+    "phpstan/phpstan": "^2.2",
+    "phpstan/phpstan-phpunit": "^2.0",
+    "phpstan/phpstan-strict-rules": "^2.0",
+    "phpunit/phpunit": "^9.6",
+    "shipmonk/dead-code-detector": "^1.4",
+    "szepeviktor/phpstan-wordpress": "^2.0",
+    "wildwolf/wordpress-test-library-stubs": "^6.2",
+    "wp-phpunit/wp-phpunit": "^6.9 || ^7.0",
+    "yoast/phpunit-polyfills": "^4.0"
+  },
+  "autoload": {
+    "classmap": [
+      "inc/"
+    ]
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "Automattic\\ShareADraft\\Tests\\Behat\\": "tests/behat/",
+      "Automattic\\ShareADraft\\PHPStan\\": "tests/phpstan/"
+    }
+  },
+  "config": {
+    "allow-plugins": {
+      "dealerdirect/phpcodesniffer-composer-installer": true,
+      "phpstan/extension-installer": true
+    },
+    "platform": {
+      "php": "8.2"
+    },
+    "sort-packages": true
+  },
+  "scripts": {
+    "behat": "behat --colors",
+    "behat-rerun": "behat --colors --rerun",
+    "i18n": [
+      "@i18n:pot",
+      "@i18n:json"
+    ],
+    "i18n:json": "wp i18n make-json languages --no-purge --pretty-print",
+    "i18n:pot": "wp i18n make-pot . languages/shareadraft.pot --slug=shareadraft --exclude=src,tests,fixtures,docs,.wp-env,.wpvip,.devcontainer --headers='{\"Report-Msgid-Bugs-To\":\"https://github.com/Automattic/shareadraft/issues\"}'",
+    "phpcbf": "phpcbf",
+    "phpcs": "phpcs",
+    "phpstan": "phpstan analyse --memory-limit=2G",
+    "prepare-behat-tests": "wp-env start",
+    "test": [
+      "@test:unit",
+      "@test:integration",
+      "@test:e2e"
+    ],
+    "test:coverage": "phpunit -c phpunit.xml.dist --coverage-html=coverage --coverage-text",
+    "test:e2e": "npm test",
+    "test:integration": "phpunit -c phpunit.xml.dist",
+    "test:unit": "phpunit -c phpunit-unit.xml.dist"
+  },
+  "scripts-descriptions": {
+    "behat": "Run the WP-CLI Behat feature tests (needs a running wp-env; see prepare-behat-tests)",
+    "behat-rerun": "Rerun only the Behat scenarios that failed last time",
+    "phpstan": "Run PHPStan static analysis (level 10, with the WordPress, strict-rules, PHPUnit and dead-code extensions)",
+    "prepare-behat-tests": "Start the wp-env environment the Behat tests run against",
+    "i18n": "Regenerate the POT file and any JSON catalogues (needs WP-CLI and a current `npm run build`)",
+    "i18n:json": "Split translated PO files into the JSON catalogues the editor script loads",
+    "i18n:pot": "Regenerate languages/shareadraft.pot from the PHP and the built editor script",
+    "test": "Run PHPUnit (unit + integration) and Playwright e2e tests (e2e needs a running vip dev-env)",
+    "test:e2e": "Run Playwright e2e tests only (needs a running vip dev-env)",
+    "test:integration": "Run the integration suite (boots a real WordPress test environment)",
+    "test:unit": "Run the fast unit suite (pure PHP, no WordPress)"
+  }
+}
