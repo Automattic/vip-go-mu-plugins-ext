@@ -1,7 +1,0 @@
-default:
-  suites:
-    default:
-      contexts:
-        - Automattic\ShareADraft\Tests\Behat\FeatureContext
-      paths:
-        - features
