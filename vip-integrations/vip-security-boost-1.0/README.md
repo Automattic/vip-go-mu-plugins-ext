@@ -91,7 +91,7 @@ Please note, for Psalm to work properly you will need to annotate your PHP code.
 
 ## Linting and coding standards.
 
-Linting and coding standards are powered by [PHP_CodeSniffer](https://github.com/squizlabs/PHP_CodeSniffer) (commonly known as PHPCS) along with WordPress VIP and WordPress core rulesets.
+Linting and coding standards are powered by [PHP_CodeSniffer](https://github.com/PHPCSStandards/PHP_CodeSniffer) (commonly known as PHPCS) along with WordPress VIP and WordPress core rulesets.
 
 For more information please refer to the [linting documentation](/docs/linting.md).
 

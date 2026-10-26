@@ -2,20 +2,20 @@
 <ruleset xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" name="wp-parsely" xsi:noNamespaceSchemaLocation="vendor/squizlabs/php_codesniffer/phpcs.xsd">
 	<description>Custom ruleset for wp-parsely plugin.</description>
 
-	<!-- For help in understanding this file: https://github.com/squizlabs/PHP_CodeSniffer/wiki/Annotated-ruleset.xml -->
-	<!-- For help in using PHPCS: https://github.com/squizlabs/PHP_CodeSniffer/wiki/Usage -->
+	<!-- For help in understanding this file: https://github.com/PHPCSStandards/PHP_CodeSniffer/wiki/Annotated-Ruleset -->
+	<!-- For help in using PHPCS: https://github.com/PHPCSStandards/PHP_CodeSniffer/wiki/Usage -->
 
 	<!-- What to scan -->
 	<file>.</file>
 	<!-- Ignoring Files and Folders:
-		https://github.com/squizlabs/PHP_CodeSniffer/wiki/Advanced-Usage#ignoring-files-and-folders -->
+		https://github.com/PHPCSStandards/PHP_CodeSniffer/wiki/Advanced-Usage#ignoring-files-and-folders -->
 	<exclude-pattern>/build/</exclude-pattern>
 	<exclude-pattern>/node_modules/</exclude-pattern>
 	<exclude-pattern>/vendor/</exclude-pattern>
 
 	<!-- How to scan -->
-	<!-- Usage instructions: https://github.com/squizlabs/PHP_CodeSniffer/wiki/Usage -->
-	<!-- Annotated ruleset: https://github.com/squizlabs/PHP_CodeSniffer/wiki/Annotated-ruleset.xml -->
+	<!-- Usage instructions: https://github.com/PHPCSStandards/PHP_CodeSniffer/wiki/Usage -->
+	<!-- Annotated ruleset: https://github.com/PHPCSStandards/PHP_CodeSniffer/wiki/Annotated-Ruleset -->
 	<!-- Show sniff and progress -->
 	<arg value="sp"/>
 	<!-- Strip the file paths down to the relevant bit -->
