@@ -1,0 +1,58 @@
+name: WordPress SVN auto-publisher
+
+on:
+  push:
+    tags:
+      - 'v?[0-9]+.[0-9]+'
+      - 'v?[0-9]+.[0-9]+-*'
+      - 'v?[0-9]+.[0-9]+.[0-9]+'
+      - 'v?[0-9]+.[0-9]+.[0-9]+-*'
+      - 'v?[0-9]+.[0-9]+.[0-9]+.[0-9]+'
+      - 'v?[0-9]+.[0-9]+.[0-9]+.[0-9]+-*'
+
+permissions:
+  # actions/checkout
+  contents: read
+
+jobs:
+  publish:
+    name: Publish
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check that the secret is set
+        env:
+          WPSVN_USERNAME: ${{ secrets.WPSVN_USERNAME }}
+          WPSVN_PASSWORD: ${{ secrets.WPSVN_PASSWORD }}
+        run: |
+          EXIT=0
+          if [[ -z "$WPSVN_USERNAME" ]]; then
+            echo '::error::The secret WPSVN_USERNAME must be set.'
+            EXIT=1
+          fi
+          if [[ -z "$WPSVN_PASSWORD" ]]; then
+            echo '::error::The secret WPSVN_PASSWORD must be set.'
+            EXIT=1
+          fi
+          exit $EXIT
+
+      # The runner image's default Azure Ubuntu mirrors are often much slower than the default ones.
+      # See, for example: https://github.com/actions/runner-images/issues/14823
+      - name: Use upstream Ubuntu mirrors
+        run: |
+          if [[ -f /etc/apt/apt-mirrors.txt ]]; then
+            sudo sed -i '/azure/d' /etc/apt/apt-mirrors.txt
+            cat /etc/apt/apt-mirrors.txt
+          fi
+
+      - name: Install svn
+        run: command -v svn || sudo apt-get install -y subversion
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          path: src
+
+      - name: Publish
+        env:
+          WPSVN_USERNAME: ${{ secrets.WPSVN_USERNAME }}
+          WPSVN_PASSWORD: ${{ secrets.WPSVN_PASSWORD }}
+        run: ./src/.github/files/wp-svn-autopublish.sh
