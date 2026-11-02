@@ -1,0 +1,1 @@
+<?php return array('dependencies' => array('react-jsx-runtime', 'wp-deprecated', 'wp-dom', 'wp-element', 'wp-is-shallow-equal', 'wp-keycodes', 'wp-priority-queue', 'wp-private-apis', 'wp-undo-manager'), 'version' => '901d9e7deb2bc2b2b98f');
