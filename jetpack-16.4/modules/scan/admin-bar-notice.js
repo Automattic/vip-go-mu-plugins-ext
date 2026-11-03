@@ -1,0 +1,68 @@
+( function ( localized ) {
+	function ready( fn ) {
+		if ( document.readyState !== 'loading' ) {
+			fn();
+		} else {
+			document.addEventListener( 'DOMContentLoaded', fn );
+		}
+	}
+
+	function fetch_scan_treats_and_add_link() {
+		var xhrRequest = new XMLHttpRequest();
+		xhrRequest.open( 'GET', localized.scan_endpoint, true );
+		xhrRequest.onload = function () {
+			if ( this.status === 200 ) {
+				// Success!
+				var body = JSON.parse( this.response );
+				if ( body && body.data ) {
+					var apiResponse = JSON.parse( body.data );
+					var numberOfThreats =
+						apiResponse.threats && apiResponse.threats.length ? apiResponse.threats.length : 0;
+					update_threats_link( numberOfThreats );
+				} else {
+					update_threats_link( 0 );
+				}
+			} else {
+				update_threats_link( 0 );
+			}
+		};
+		xhrRequest.setRequestHeader( 'X-WP-Nonce', localized.nonce );
+		xhrRequest.send();
+	}
+
+	// The Protect dashboard's threat count script fetches the count for both the admin bar and its menu item.
+	if ( localized.count_event ) {
+		document.addEventListener( localized.count_event, function ( event ) {
+			ready( function () {
+				update_threats_link( event.detail.count );
+			} );
+		} );
+		if ( typeof window.jetpackProtectThreatCount === 'number' ) {
+			ready( function () {
+				update_threats_link( window.jetpackProtectThreatCount );
+			} );
+		}
+		return;
+	}
+
+	ready( function () {
+		fetch_scan_treats_and_add_link();
+	} );
+
+	function update_threats_link( numberOfThreats ) {
+		var element = document.getElementById( 'wp-admin-bar-jetpack-scan-notice' );
+		if ( ! element ) {
+			return;
+		}
+
+		// Hidden rather than removed, as an unignored threat on the Protect page can bring the count back.
+		element.classList.toggle( 'is-hidden', ! numberOfThreats );
+		if ( ! numberOfThreats ) {
+			return;
+		}
+
+		var textLabel = numberOfThreats === 1 ? localized.singular : localized.multiple;
+		element.innerHTML =
+			'<a href="' + localized.scan_dashboard_url + '" class="ab-item">' + textLabel + '</a>';
+	}
+} )( window.Jetpack_Scan );
