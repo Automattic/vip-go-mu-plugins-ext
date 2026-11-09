@@ -15,6 +15,8 @@ describe( 'compareVersions()', () => {
             // latest version => current version key-value pairing
             '11.7': '11.7-beta3',
             '11.7-beta4': '11.7-beta3',
+            '1.0.0-beta.2': '1.0.0-beta.1',
+            '1.0.0-beta.1': '1.0.0-alpha.2',
             '11.7.1': '11.7',
             '11.7.4': '11.7.3',
             '3.6.1': '3.6.0',
@@ -30,6 +32,7 @@ describe( 'compareVersions()', () => {
         const versionsToCompare = {
             // latest version => current version key-value pairing
             '11.7-beta3': '11.7-beta3',
+            '1.0.0-beta.1': '1.0.0-beta.1',
             '11.7.1': '11.7.1',
             '3.6.0': '3.6.0',
         };
@@ -44,6 +47,7 @@ describe( 'compareVersions()', () => {
         const versionsToCompare = {
             // latest version => current version key-value pairing
             '11.7-beta2': '11.7-beta3',
+            '1.0.0-alpha.2': '1.0.0-beta.1',
             '11.7': '11.7.1',
             '3.6.0': '3.6.1',
         };
@@ -57,6 +61,7 @@ describe( 'compareVersions()', () => {
 describe( 'isBeta()', () => {
     it( 'should return true if it has beta in the string', () => {
         assert.strictEqual( isBeta( '11.7-beta3' ), true );
+        assert.strictEqual( isBeta( '1.0.0-beta.1' ), true );
     });
     it( 'should return false if it does not have beta in the string', () => {
         assert.strictEqual( isBeta( '11.7.1' ), false );
@@ -115,6 +120,19 @@ describe( 'parseVersionString()', () => {
         assert.strictEqual( version.beta, 3 );
         assert.strictEqual( version.minorKey, '12.8' );
         assert.strictEqual( version.raw, '12.8.1-beta3' );
+    });
+
+    it( 'should parse SemVer alpha and beta prereleases', () => {
+        const alpha = parseVersionString( '1.0.0-alpha.2' );
+        assert.strictEqual( alpha.alpha, 2 );
+        assert.strictEqual( alpha.beta, null );
+        assert.deepStrictEqual( alpha.prerelease, { channel: 'alpha', number: 2 } );
+
+        const beta = parseVersionString( '1.0.0-beta.1' );
+        assert.strictEqual( beta.alpha, null );
+        assert.strictEqual( beta.beta, 1 );
+        assert.deepStrictEqual( beta.prerelease, { channel: 'beta', number: 1 } );
+        assert.strictEqual( beta.minorKey, '1.0' );
     });
 
     it( 'should return null for invalid version strings', () => {
