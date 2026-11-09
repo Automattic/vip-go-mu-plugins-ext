@@ -12,47 +12,54 @@ function compareVersions(a, b) {
     if (a === b) {
         return 0;
     }
-    const aParts = parseVersion(a);
-    const bParts = parseVersion(b);
+    const aVersion = parseVersionString(a);
+    const bVersion = parseVersionString(b);
 
-    const majorCmpr = aParts[0] - bParts[0];
+    if (!aVersion || !bVersion) {
+        throw new Error(`Cannot compare invalid versions: ${a} and ${b}`);
+    }
+
+    const majorCmpr = aVersion.major - bVersion.major;
     if (majorCmpr !== 0) {
         return majorCmpr;
     }
 
-    const minorCmpr = aParts[1] - bParts[1];
+    const minorCmpr = aVersion.minor - bVersion.minor;
     if (minorCmpr !== 0) {
         return minorCmpr;
     }
 
-    if ( isBeta( a ) && isBeta( b ) ) {
-        return stripBetaFromString( aParts[2] ) - stripBetaFromString( bParts[2] );
-    } else if ( isBeta( b ) && ! isBeta( a ) ) {
+    if (aVersion.patch !== bVersion.patch) {
+        if (aVersion.patch === null) {
+            return -1;
+        }
+        if (bVersion.patch === null) {
+            return 1;
+        }
+        return aVersion.patch - bVersion.patch;
+    }
+
+    if (!aVersion.prerelease && !bVersion.prerelease) {
+        return 0;
+    }
+    if (!aVersion.prerelease) {
         return 1;
-    } else if ( isBeta( a) && ! isBeta( b ) ) {
+    }
+    if (!bVersion.prerelease) {
         return -1;
     }
 
-    if (aParts.length === 2) {
-        return -1;
-    }
-    if (bParts.length === 2) {
-        return 1;
+    const channelOrder = { alpha: 0, beta: 1 };
+    const channelCmpr = channelOrder[aVersion.prerelease.channel] - channelOrder[bVersion.prerelease.channel];
+    if (channelCmpr !== 0) {
+        return channelCmpr;
     }
 
-    return aParts[2] - bParts[2];
-}
-
-function parseVersion(version) {
-    return version.split(/[.-]/).map(part => isNaN(Number(part)) ? part : Number(part));
+    return aVersion.prerelease.number - bVersion.prerelease.number;
 }
 
 function isBeta(version) {
     return typeof version === 'string' && version.indexOf( 'beta') !== -1;
-}
-
-function stripBetaFromString( string ) {
-    return string.replace( 'beta', '' );
 }
 
 /**
@@ -92,18 +99,28 @@ function fetchAllTags(repoUrl, versionPrefix = '') {
  * @returns {Object|null} Parsed version object or null if invalid
  */
 function parseVersionString(versionString) {
-    // Match semver patterns: X.Y[.Z][-beta[N]]
-    const match = versionString.match(/^(\d+)\.(\d+)(?:\.(\d+))?(?:-beta(\d*))?$/);
+    // Match stable versions plus legacy "-beta1" and SemVer "-alpha.1"/"-beta.1" prereleases.
+    const match = versionString.match(/^(\d+)\.(\d+)(?:\.(\d+))?(?:-(?:(alpha)(?:\.(\d+))?|(beta)(?:\.?(\d+))?))?$/);
     if (!match) {
         return null;
     }
     
-    const [, major, minor, patch, beta] = match;
+    const [, major, minor, patch, alphaChannel, alphaNumber, betaChannel, betaNumber] = match;
+    const prereleaseChannel = alphaChannel || betaChannel;
+    const prereleaseNumber = alphaNumber || betaNumber;
+    const normalizedPrereleaseNumber = prereleaseChannel
+        ? (prereleaseNumber ? parseInt(prereleaseNumber, 10) : 1)
+        : null;
+
     return {
         major: parseInt(major, 10),
         minor: parseInt(minor, 10),
         patch: patch ? parseInt(patch, 10) : null,
-        beta: beta !== undefined ? (beta ? parseInt(beta, 10) : 1) : null,
+        alpha: prereleaseChannel === 'alpha' ? normalizedPrereleaseNumber : null,
+        beta: prereleaseChannel === 'beta' ? normalizedPrereleaseNumber : null,
+        prerelease: prereleaseChannel
+            ? { channel: prereleaseChannel, number: normalizedPrereleaseNumber }
+            : null,
         minorKey: `${major}.${minor}`,
         raw: versionString,
         
