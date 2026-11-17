@@ -1,0 +1,102 @@
+{
+	"name": "vip-governance",
+	"version": "1.0.20",
+	"description": "This is a plugin adding additional governance capabilities to the block editor.",
+	"private": true,
+	"author": "WPVIP",
+	"main": "build/index.js",
+	"files": [
+		"build/",
+		"governance/",
+		"vendor/",
+		"vip-governance.php",
+		"governance-rules.json",
+		"governance-schema.json"
+	],
+	"devDependencies": {
+		"@automattic/eslint-plugin-wpvip": "^2.0.1",
+		"@babel/core": "^7.29.13",
+		"@playwright/test": "^1.65.1",
+		"@types/jest": "^30.0.0",
+		"@types/react": "^19.3.0",
+		"@wordpress/api-fetch": "^8.1.0",
+		"@wordpress/babel-preset-default": "^10.1.0",
+		"@wordpress/block-editor": "^20.0.0",
+		"@wordpress/components": "^44.0.0",
+		"@wordpress/data": "^11.1.0",
+		"@wordpress/e2e-test-utils-playwright": "^3.2.0",
+		"@wordpress/element": "^10.1.0",
+		"@wordpress/env": "^12.1.0",
+		"@wordpress/hooks": "^5.1.0",
+		"@wordpress/i18n": "^7.1.0",
+		"@wordpress/jest-preset-default": "^14.2.0",
+		"@wordpress/notices": "^6.1.0",
+		"@wordpress/scripts": "^37.1.0",
+		"babel-jest": "^30.5.2",
+		"eslint": "^10.15.0",
+		"jest": "^30.5.2",
+		"jest-environment-jsdom": "^30.5.2",
+		"prettier": "npm:wp-prettier@3.9.6",
+		"typescript": "~6.0.3"
+	},
+	"scripts": {
+		"build": "wp-scripts build",
+		"dev": "wp-scripts start",
+		"cmd:format": "prettier '**/*.(js|json|jsx|md|ts|tsx|yml|yaml)'",
+		"cmd:lint:js": "eslint '**/*.{js,jsx,ts,tsx}' --quiet",
+		"format": "npm run cmd:format -- --write",
+		"format:check": "npm run cmd:format -- --check",
+		"lint": "npm run format:check && npm run lint:js && npm run typecheck && npm run lint:php",
+		"lint:fix": "npm run cmd:lint:js -- --fix",
+		"lint:js": "npm run cmd:lint:js",
+		"lint:php": "npm run lint:phpcs",
+		"lint:phpcs": "vendor/squizlabs/php_codesniffer/bin/phpcs --cache",
+		"lint:phpcs:fix": "vendor/squizlabs/php_codesniffer/bin/phpcbf",
+		"packages-update": "wp-scripts packages-update",
+		"prepare": "sh bin/install-hook",
+		"postinstall": "composer install --no-dev",
+		"release:zip": "npm run build && git diff --exit-code HEAD -- build && wp-scripts plugin-zip --root-folder=vip-governance",
+		"test": "npm run test:unit",
+		"test:unit": "npm run test:php && npm run test:js",
+		"test:e2e": "npx playwright test",
+		"test:php": "composer run test",
+		"test:js": "wp-scripts test-unit-jest",
+		"typecheck": "tsc --noEmit",
+		"wp-cli": "wp-env run cli -- wp"
+	},
+	"jest": {
+		"testMatch": [
+			"<rootDir>/src/**/*.test.[jt]s?(x)"
+		],
+		"preset": "@wordpress/jest-preset-default",
+		"testPathIgnorePatterns": [
+			"/.git/",
+			"/node_modules/",
+			"/governance/",
+			"/tests/"
+		],
+		"transform": {
+			"^.+\\.[jt]sx?$": [
+				"babel-jest",
+				{
+					"presets": [
+						"@wordpress/babel-preset-default"
+					]
+				}
+			]
+		}
+	},
+	"overrides": {
+		"copy-webpack-plugin": {
+			"serialize-javascript": "^7.1.4"
+		},
+		"glob@>=9 <14.0.2": "^14.0.6",
+		"minimatch@>=7 <11.0.1": "^11.0.8",
+		"@wp-playground/cli": {
+			"express": "^4.22.3"
+		},
+		"isomorphic-git": "^1.44.15",
+		"markdownlint-cli": "^0.50.0",
+		"katex": "^0.18.2"
+	}
+}
