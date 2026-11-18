@@ -1,0 +1,43 @@
+{
+    "name": "prorataai/gist-answers",
+    "description": "Integrates Gist.ai with WordPress to sync publisher content, configure answer experiences, and display AI-powered Gist answer widgets on your site.",
+    "type": "wordpress-plugin",
+    "license": "GPL-2.0-or-later",
+    "autoload": {
+        "psr-4": {
+            "GistAnswers\\": "includes/"
+        }
+    },
+    "require-dev": {
+        "automattic/vipwpcs": "^3.0",
+        "dealerdirect/phpcodesniffer-composer-installer": "^1.2",
+        "phpcompatibility/php-compatibility": "^9.3",
+        "phpunit/phpunit": "^11.5 || ^12",
+        "slevomat/coding-standard": "^8.22",
+        "squizlabs/php_codesniffer": "^3.13",
+        "wp-coding-standards/wpcs": "^3.3",
+        "yoast/phpunit-polyfills": "^4.0"
+    },
+    "config": {
+        "sort-packages": true,
+        "platform": {
+            "php": "8.2"
+        },
+        "allow-plugins": {
+            "dealerdirect/phpcodesniffer-composer-installer": true
+        }
+    },
+    "scripts": {
+        "test": [
+            "@test:unit",
+            "@test:e2e"
+        ],
+        "test:unit": "phpunit",
+        "test:e2e": "npm test"
+    },
+    "scripts-descriptions": {
+        "test": "Run the PHPUnit and Playwright e2e suites (both need a WordPress environment; see README.md)",
+        "test:unit": "Run the PHPUnit suite (needs WP_TESTS_DIR pointing at the WordPress test library)",
+        "test:e2e": "Run the Playwright e2e suite against the site at E2E_URL"
+    }
+}
