@@ -1,7 +1,0 @@
-{
-	"plugins": [
-		"."
-	],
-	"port": 8889,
-	"testsEnvironment": false
-}
