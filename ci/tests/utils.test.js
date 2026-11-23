@@ -238,30 +238,30 @@ describe( 'discoverPluginVersions()', () => {
     it('allows beta without implicitly allowing alpha', () => {
         assert.deepStrictEqual(discoverVersions([
             'v1.8.0', 'v1.8.1-beta.2', 'v1.8.2-alpha.1', 'v1.9.0-alpha.1'
-        ], { releaseChannel: { beta: true } }), { '1.8': '1.8.1-beta.2' });
+        ], { releaseChannels: { beta: true } }), { '1.8': '1.8.1-beta.2' });
     });
 
     it('allows alpha without implicitly allowing beta', () => {
         assert.deepStrictEqual(discoverVersions([
             'v1.8.0', 'v1.8.1-alpha.2', 'v1.8.1-beta.1', 'v1.9.0-beta.1'
-        ], { releaseChannel: { alpha: true } }), { '1.8': '1.8.1-alpha.2' });
+        ], { releaseChannels: { alpha: true } }), { '1.8': '1.8.1-alpha.2' });
     });
 
     it('uses normal version ordering when both channels are enabled', () => {
         assert.deepStrictEqual(discoverVersions([
             'v1.8.0-alpha.2', 'v1.8.0-beta.1', 'v1.8.0',
             'v1.9.0-alpha.3', 'v1.9.0-beta.1'
-        ], { releaseChannel: { alpha: true, beta: true } }), {
+        ], { releaseChannels: { alpha: true, beta: true } }), {
             '1.8': '1.8.0', '1.9': '1.9.0-beta.1'
         });
     });
 
-    for (const releaseChannel of [{}, { alpha: false, beta: false },
+    for (const releaseChannels of [{}, { alpha: false, beta: false },
         { alpha: 'true', beta: 1 }, null, true]) {
-        it(`requires explicit boolean opt-ins: ${JSON.stringify(releaseChannel)}`, () => {
+        it(`requires explicit boolean opt-ins: ${JSON.stringify(releaseChannels)}`, () => {
             assert.deepStrictEqual(discoverVersions([
                 'v1.8.0', 'v1.9.0-alpha.1', 'v1.9.0-beta.1'
-            ], { releaseChannel }), { '1.8': '1.8.0' });
+            ], { releaseChannels }), { '1.8': '1.8.0' });
         });
     }
 
@@ -269,7 +269,7 @@ describe( 'discoverPluginVersions()', () => {
         assert.deepStrictEqual(discoverVersions([
             'v1.7.0-beta.1', 'v1.8.0', 'v1.9.0-beta.1', 'v1.10.0-alpha.1',
             'v1.11.0-beta.1', 'v1.12.0-rc.1'
-        ], { releaseChannel: { alpha: true, beta: true }, skip: ['1.9'], ignore: ['1.10'] }), {
+        ], { releaseChannels: { alpha: true, beta: true }, skip: ['1.9'], ignore: ['1.10'] }), {
             '1.8': '1.8.0', '1.11': '1.11.0-beta.1'
         });
     });
@@ -277,7 +277,7 @@ describe( 'discoverPluginVersions()', () => {
     it('allows legacy beta tags when beta is enabled', () => {
         assert.deepStrictEqual(discoverVersions([
             '12.8.2', '12.8.3-beta1', '12.9-beta1'
-        ], { versionPrefix: '', lowestVersion: '12.8', releaseChannel: { beta: true } }), {
+        ], { versionPrefix: '', lowestVersion: '12.8', releaseChannels: { beta: true } }), {
             '12.8': '12.8.3-beta1', '12.9': '12.9-beta1'
         });
     });

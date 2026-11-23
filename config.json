@@ -101,7 +101,7 @@
     "lowestVersion": "1.8",
     "releaseZipFileName": "remote-data-blocks",
     "releaseZipRootFolder": "remote-data-blocks",
-    "releaseChannel": {
+    "releaseChannels": {
       "alpha": false,
       "beta": false
     },
