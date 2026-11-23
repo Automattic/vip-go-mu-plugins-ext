@@ -2073,12 +2073,15 @@ input.components-combobox-control__input[type=text]:focus {
 .components-menu-item__button.components-button.is-primary .components-menu-item__item {
   margin-left: 0;
 }
-.components-menu-item__button:disabled.is-tertiary, .components-menu-item__button[aria-disabled=true].is-tertiary,
-.components-menu-item__button.components-button:disabled.is-tertiary,
-.components-menu-item__button.components-button[aria-disabled=true].is-tertiary {
-  background: none;
-  color: var(--wp-components-color-accent-darker-10, var(--wp-admin-theme-color-darker-10, #2145e6));
-  opacity: 0.3;
+@media (forced-colors: active) {
+  .components-menu-item__button[aria-disabled=true]:not(.is-pressed),
+  .components-menu-item__button.components-button[aria-disabled=true]:not(.is-pressed) {
+    color: GrayText !important;
+  }
+  .components-menu-item__button[aria-disabled=true]:not(.is-pressed) .components-menu-item__info,
+  .components-menu-item__button.components-button[aria-disabled=true]:not(.is-pressed) .components-menu-item__info {
+    color: inherit;
+  }
 }
 
 .components-menu-item__info-wrapper {

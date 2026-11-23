@@ -52318,7 +52318,7 @@ Icon: ButtonIcon });
 	};
 	function getChipsToolbarLabel(selectedCount) {
 		if (selectedCount === 0) return;
-		return (0, _wordpress_i18n._n)("Selected item", "Selected items", selectedCount);
+		return (0, _wordpress_i18n.__)("Selected items");
 	}
 	function getInputSelectionHint(selectedCount) {
 		if (selectedCount === 0) return;
