@@ -133,7 +133,7 @@ function parseVersionString(versionString) {
 }
 
 /**
- * Discovers all available versions for a plugin from its repository
+ * Discovers the latest allowed versions for a plugin from its repository
  * @param {string} plugin - Plugin name
  * @param {Object} config - Plugin configuration from config.json
  * @returns {Object} Object with minorKey -> latestVersion mapping
@@ -158,6 +158,11 @@ function discoverPluginVersions(plugin, config) {
         const version = parseVersionString(tag);
         if (!version) {
             continue; // Skip invalid version strings
+        }
+        if (version.prerelease && config.releaseChannels?.[version.prerelease.channel] !== true) {
+            // Require an explicit opt-in for each prerelease channel before
+            // grouping versions or selecting a dependency to import.
+            continue;
         }
         
         // Skip versions below lowestVersion

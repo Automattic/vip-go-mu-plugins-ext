@@ -1,11 +1,16 @@
 const { describe, it } = require( 'node:test' );
 const assert = require( 'node:assert/strict' );
+const { execFileSync } = require( 'node:child_process' );
+const fs = require( 'node:fs' );
+const os = require( 'node:os' );
+const path = require( 'node:path' );
 const {
     compareVersions,
     isBeta,
     parseVersionString,
     resolveReleaseZipFileName,
-    fetchAllTags
+    fetchAllTags,
+    discoverPluginVersions
 } = require( '../utils' );
 
 describe( 'compareVersions()', () => {
@@ -161,5 +166,119 @@ describe( 'resolveReleaseZipFileName()', () => {
 
     it( 'should leave a name without the placeholder unchanged', () => {
         assert.strictEqual( resolveReleaseZipFileName( 'safe-publish', '1.4.1' ), 'safe-publish' );
+    });
+});
+
+describe( 'discoverPluginVersions()', () => {
+    // Exercise the real git tag-discovery path against disposable local repositories.
+    function discoverVersions(tags, overrides = {}) {
+        const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'ext-stable-versions-'));
+        const git = args => execFileSync('git', args, { cwd: repo, stdio: 'pipe' });
+
+        try {
+            git(['init']);
+            git(['-c', 'user.name=Version Test', '-c', 'user.email=test@example.com',
+                '-c', 'commit.gpgsign=false', 'commit', '--allow-empty', '-m', 'Tag fixture']);
+            for (const tag of tags) {
+                git(['tag', tag]);
+            }
+
+            return discoverPluginVersions('fixture', {
+                repo,
+                versionPrefix: 'v',
+                lowestVersion: '1.8',
+                skip: [],
+                ignore: [],
+                ...overrides
+            });
+        } finally {
+            fs.rmSync(repo, { recursive: true, force: true });
+        }
+    }
+
+    it('does not add a directory for a prerelease-only minor or major', () => {
+        assert.deepStrictEqual(discoverVersions([
+            'v1.8.0', 'v1.9.0-alpha.1', 'v1.9.0-beta.2', 'v2.0.0-alpha.1'
+        ]), { '1.8': '1.8.0' });
+    });
+
+    it('keeps the latest stable patch when a newer patch has prereleases', () => {
+        assert.deepStrictEqual(discoverVersions([
+            'v1.8.0', 'v1.8.1', 'v1.8.2-alpha.1', 'v1.8.2-beta.1'
+        ]), { '1.8': '1.8.1' });
+    });
+
+    it('returns no updates when every tag is a prerelease', () => {
+        assert.deepStrictEqual(discoverVersions([
+            'v1.9.0-alpha', 'v1.9.0-alpha.1', 'v1.9.0-beta', 'v1.9.0-beta.1',
+            'v1.9-beta1', 'v1.9.0-rc.1', 'v1.9.0-dev.1'
+        ]), {});
+    });
+
+    it('selects a stable release after its alpha and beta tags', () => {
+        assert.deepStrictEqual(discoverVersions([
+            'v1.9.0-alpha.1', 'v1.9.0-beta.2', 'v1.9.0', 'v1.9.1-alpha.1'
+        ]), { '1.9': '1.9.0' });
+    });
+
+    it('preserves lowestVersion, skip and ignore filtering for stable releases', () => {
+        assert.deepStrictEqual(discoverVersions([
+            'v1.7.9', 'v1.8.0', 'v1.9.0', 'v1.10.0', 'v1.11.0', 'v1.12.0-beta.1'
+        ], { skip: ['1.9'], ignore: ['1.10'] }), {
+            '1.8': '1.8.0', '1.11': '1.11.0'
+        });
+    });
+
+    it('also skips legacy beta tags in repositories without a version prefix', () => {
+        assert.deepStrictEqual(discoverVersions([
+            '12.8', '12.8.2', '12.8.3-beta1', '12.9-beta1', '13.0-beta'
+        ], { versionPrefix: '', lowestVersion: '12.8' }), { '12.8': '12.8.2' });
+    });
+
+    it('allows beta without implicitly allowing alpha', () => {
+        assert.deepStrictEqual(discoverVersions([
+            'v1.8.0', 'v1.8.1-beta.2', 'v1.8.2-alpha.1', 'v1.9.0-alpha.1'
+        ], { releaseChannels: { beta: true } }), { '1.8': '1.8.1-beta.2' });
+    });
+
+    it('allows alpha without implicitly allowing beta', () => {
+        assert.deepStrictEqual(discoverVersions([
+            'v1.8.0', 'v1.8.1-alpha.2', 'v1.8.1-beta.1', 'v1.9.0-beta.1'
+        ], { releaseChannels: { alpha: true } }), { '1.8': '1.8.1-alpha.2' });
+    });
+
+    it('uses normal version ordering when both channels are enabled', () => {
+        assert.deepStrictEqual(discoverVersions([
+            'v1.8.0-alpha.2', 'v1.8.0-beta.1', 'v1.8.0',
+            'v1.9.0-alpha.3', 'v1.9.0-beta.1'
+        ], { releaseChannels: { alpha: true, beta: true } }), {
+            '1.8': '1.8.0', '1.9': '1.9.0-beta.1'
+        });
+    });
+
+    for (const releaseChannels of [{}, { alpha: false, beta: false },
+        { alpha: 'true', beta: 1 }, null, true]) {
+        it(`requires explicit boolean opt-ins: ${JSON.stringify(releaseChannels)}`, () => {
+            assert.deepStrictEqual(discoverVersions([
+                'v1.8.0', 'v1.9.0-alpha.1', 'v1.9.0-beta.1'
+            ], { releaseChannels }), { '1.8': '1.8.0' });
+        });
+    }
+
+    it('preserves version exclusions even with both channels enabled', () => {
+        assert.deepStrictEqual(discoverVersions([
+            'v1.7.0-beta.1', 'v1.8.0', 'v1.9.0-beta.1', 'v1.10.0-alpha.1',
+            'v1.11.0-beta.1', 'v1.12.0-rc.1'
+        ], { releaseChannels: { alpha: true, beta: true }, skip: ['1.9'], ignore: ['1.10'] }), {
+            '1.8': '1.8.0', '1.11': '1.11.0-beta.1'
+        });
+    });
+
+    it('allows legacy beta tags when beta is enabled', () => {
+        assert.deepStrictEqual(discoverVersions([
+            '12.8.2', '12.8.3-beta1', '12.9-beta1'
+        ], { versionPrefix: '', lowestVersion: '12.8', releaseChannels: { beta: true } }), {
+            '12.8': '12.8.3-beta1', '12.9': '12.9-beta1'
+        });
     });
 });
