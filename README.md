@@ -74,6 +74,13 @@ This is useful for testing changes to the update process or previewing updates b
 
 Hopefully the only upkeep we need to do is to change [config](./config.json). And only to remove or skip a version. **Additions** and **updates** should happen on its own.
 
+Automatic dependency updates select **stable version tags only**. Prerelease tags
+(including alpha, beta, and legacy beta tags) are excluded before selecting the
+latest version in each major/minor series, so they cannot add a directory or
+replace an existing stable patch. Once a stable version is tagged, it becomes
+eligible for the next update. Existing bundled prereleases are not removed or
+downgraded by this policy. Discovery uses Git tags, not GitHub release metadata.
+
 Each entry in config.json should follow the following format:
 
 ```json

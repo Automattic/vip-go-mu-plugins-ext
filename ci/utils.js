@@ -133,7 +133,7 @@ function parseVersionString(versionString) {
 }
 
 /**
- * Discovers all available versions for a plugin from its repository
+ * Discovers the latest stable versions for a plugin from its repository
  * @param {string} plugin - Plugin name
  * @param {Object} config - Plugin configuration from config.json
  * @returns {Object} Object with minorKey -> latestVersion mapping
@@ -156,8 +156,10 @@ function discoverPluginVersions(plugin, config) {
     
     for (const tag of tags) {
         const version = parseVersionString(tag);
-        if (!version) {
-            continue; // Skip invalid version strings
+        if (!version || version.prerelease) {
+            // Exclude prereleases before grouping so they cannot replace stable
+            // patches or introduce a new major/minor directory.
+            continue;
         }
         
         // Skip versions below lowestVersion
