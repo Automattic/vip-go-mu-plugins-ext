@@ -74,12 +74,12 @@ This is useful for testing changes to the update process or previewing updates b
 
 Hopefully the only upkeep we need to do is to change [config](./config.json). And only to remove or skip a version. **Additions** and **updates** should happen on its own.
 
-Automatic dependency updates select **stable version tags only**. Prerelease tags
-(including alpha, beta, and legacy beta tags) are excluded before selecting the
-latest version in each major/minor series, so they cannot add a directory or
-replace an existing stable patch. Once a stable version is tagged, it becomes
-eligible for the next update. Existing bundled prereleases are not removed or
-downgraded by this policy. Discovery uses Git tags, not GitHub release metadata.
+Automatic dependency updates select **stable version tags by default**. Each
+dependency can explicitly opt into alpha or beta tags with `prereleases` (see
+below). Disallowed tags are excluded before selecting the latest version in each
+major/minor series, so they cannot add a directory or replace an existing stable
+patch. Existing bundled prereleases are not removed or downgraded when their
+channel is disabled. Discovery uses Git tags, not GitHub release metadata.
 
 Each entry in config.json should follow the following format:
 
@@ -90,6 +90,10 @@ Each entry in config.json should follow the following format:
     "folderPrefix": "awesome-plugin-",
     "lowestVersion": "3.1",
     "versionPrefix": "",
+    "prereleases": {
+      "alpha": false,
+      "beta": false
+    },
     "releaseZipFileName": "awesome-plugin",
     "releaseZipRootFolder": "",
     "skip": [
@@ -120,6 +124,24 @@ List of versions that should be fully ignored by upgrader. That means not update
 ## `versionPrefix`
 
 Optional string prefix used in version numbers. For example, if a plugin uses "v1.2.3" rather than "1.2.3", set this to "v". The updater will handle stripping and adding this prefix when comparing versions.
+
+## `prereleases`
+
+Optional per-dependency object with independent `alpha` and `beta` booleans.
+Only literal `true` enables a channel; omitting the object or a channel defaults
+to `false`. For example, to allow beta tags but not alpha tags:
+
+```json
+"prereleases": { "alpha": false, "beta": true }
+```
+
+Stable versions are always eligible. The updater selects the highest allowed
+version in each major/minor series using the normal version ordering; enabling
+a channel can therefore replace a stable patch with a newer prerelease patch
+or add a prerelease-only series. An enabled channel does not imply another:
+`beta: true` does not enable alpha, and `alpha: true` does not enable beta.
+The beta setting also covers legacy tags such as `13.0-beta1`. Other prerelease
+formats, such as release candidates, remain unsupported and are skipped.
 
 ## `releaseZipFileName`
 

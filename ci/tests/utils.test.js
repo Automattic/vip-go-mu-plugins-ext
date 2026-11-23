@@ -234,4 +234,51 @@ describe( 'discoverPluginVersions()', () => {
             '12.8', '12.8.2', '12.8.3-beta1', '12.9-beta1', '13.0-beta'
         ], { versionPrefix: '', lowestVersion: '12.8' }), { '12.8': '12.8.2' });
     });
+
+    it('allows beta without implicitly allowing alpha', () => {
+        assert.deepStrictEqual(discoverVersions([
+            'v1.8.0', 'v1.8.1-beta.2', 'v1.8.2-alpha.1', 'v1.9.0-alpha.1'
+        ], { prereleases: { beta: true } }), { '1.8': '1.8.1-beta.2' });
+    });
+
+    it('allows alpha without implicitly allowing beta', () => {
+        assert.deepStrictEqual(discoverVersions([
+            'v1.8.0', 'v1.8.1-alpha.2', 'v1.8.1-beta.1', 'v1.9.0-beta.1'
+        ], { prereleases: { alpha: true } }), { '1.8': '1.8.1-alpha.2' });
+    });
+
+    it('uses normal version ordering when both channels are enabled', () => {
+        assert.deepStrictEqual(discoverVersions([
+            'v1.8.0-alpha.2', 'v1.8.0-beta.1', 'v1.8.0',
+            'v1.9.0-alpha.3', 'v1.9.0-beta.1'
+        ], { prereleases: { alpha: true, beta: true } }), {
+            '1.8': '1.8.0', '1.9': '1.9.0-beta.1'
+        });
+    });
+
+    for (const prereleases of [{}, { alpha: false, beta: false },
+        { alpha: 'true', beta: 1 }, null, true]) {
+        it(`requires explicit boolean opt-ins: ${JSON.stringify(prereleases)}`, () => {
+            assert.deepStrictEqual(discoverVersions([
+                'v1.8.0', 'v1.9.0-alpha.1', 'v1.9.0-beta.1'
+            ], { prereleases }), { '1.8': '1.8.0' });
+        });
+    }
+
+    it('preserves version exclusions even with both channels enabled', () => {
+        assert.deepStrictEqual(discoverVersions([
+            'v1.7.0-beta.1', 'v1.8.0', 'v1.9.0-beta.1', 'v1.10.0-alpha.1',
+            'v1.11.0-beta.1', 'v1.12.0-rc.1'
+        ], { prereleases: { alpha: true, beta: true }, skip: ['1.9'], ignore: ['1.10'] }), {
+            '1.8': '1.8.0', '1.11': '1.11.0-beta.1'
+        });
+    });
+
+    it('allows legacy beta tags when beta is enabled', () => {
+        assert.deepStrictEqual(discoverVersions([
+            '12.8.2', '12.8.3-beta1', '12.9-beta1'
+        ], { versionPrefix: '', lowestVersion: '12.8', prereleases: { beta: true } }), {
+            '12.8': '12.8.3-beta1', '12.9': '12.9-beta1'
+        });
+    });
 });
