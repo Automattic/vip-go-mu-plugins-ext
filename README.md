@@ -75,7 +75,7 @@ This is useful for testing changes to the update process or previewing updates b
 Hopefully the only upkeep we need to do is to change [config](./config.json). And only to remove or skip a version. **Additions** and **updates** should happen on its own.
 
 Automatic dependency updates select **stable version tags by default**. Each
-dependency can explicitly opt into alpha or beta tags with `prereleases` (see
+dependency can explicitly opt into alpha or beta tags with `releaseChannel` (see
 below). Disallowed tags are excluded before selecting the latest version in each
 major/minor series, so they cannot add a directory or replace an existing stable
 patch. Existing bundled prereleases are not removed or downgraded when their
@@ -90,7 +90,7 @@ Each entry in config.json should follow the following format:
     "folderPrefix": "awesome-plugin-",
     "lowestVersion": "3.1",
     "versionPrefix": "",
-    "prereleases": {
+    "releaseChannel": {
       "alpha": false,
       "beta": false
     },
@@ -125,14 +125,14 @@ List of versions that should be fully ignored by upgrader. That means not update
 
 Optional string prefix used in version numbers. For example, if a plugin uses "v1.2.3" rather than "1.2.3", set this to "v". The updater will handle stripping and adding this prefix when comparing versions.
 
-## `prereleases`
+## `releaseChannel`
 
 Optional per-dependency object with independent `alpha` and `beta` booleans.
 Only literal `true` enables a channel; omitting the object or a channel defaults
 to `false`. For example, to allow beta tags but not alpha tags:
 
 ```json
-"prereleases": { "alpha": false, "beta": true }
+"releaseChannel": { "alpha": false, "beta": true }
 ```
 
 Stable versions are always eligible. The updater selects the highest allowed

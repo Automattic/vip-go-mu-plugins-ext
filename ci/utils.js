@@ -159,7 +159,7 @@ function discoverPluginVersions(plugin, config) {
         if (!version) {
             continue; // Skip invalid version strings
         }
-        if (version.prerelease && config.prereleases?.[version.prerelease.channel] !== true) {
+        if (version.prerelease && config.releaseChannel?.[version.prerelease.channel] !== true) {
             // Require an explicit opt-in for each prerelease channel before
             // grouping versions or selecting a dependency to import.
             continue;
