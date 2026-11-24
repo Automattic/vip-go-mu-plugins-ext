@@ -1,0 +1,82 @@
+# This workflow will do a clean install of node dependencies, build the source code and run tests.
+# For more information see: https://help.github.com/actions/language-and-framework-guides/using-nodejs-with-github-actions
+
+name: Node.js CI
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: Exact source commit to check
+        type: string
+        required: false
+        default: ''
+  pull_request:
+  push:
+    paths:
+      - .github/workflows/*.js.yml
+      - '**/*[tj]sx?'
+      - package*.json
+
+# Cancels all previous workflow runs for the same branch that have not yet completed.
+concurrency:
+  group: node.js-${{ inputs.ref || github.ref }}-${{ github.event_name }}
+  cancel-in-progress: ${{ inputs.ref == '' }}
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    env:
+      TZ: UTC
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+
+      - name: Read .nvmrc
+        run: echo "NODE_VERSION=$(cat .nvmrc)" >> "$GITHUB_ENV"
+
+      - name: Use Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Use npm 11.21.3
+        run: npm install -g --ignore-scripts npm@11.21.3
+
+      - name: Test release tooling
+        run: node --test tests/release/*.test.mjs
+
+      - name: Install JavaScript dependencies
+        run: npm ci
+
+      - name: Lint CSS code
+        run: npm run lint:css
+
+      - name: Lint package.json file
+        run: npm run lint:pkg-json
+
+      - name: Lint JS code
+        run: npm run lint:js
+
+      - name: Build application
+        run: npm run build
+
+      - name: Confirm the build is up-to-date
+        run: |
+          REPOSTATUS=$(git status --porcelain);
+          if [[ -n "$REPOSTATUS" ]]; then
+            echo "Repo is not clean. Did you forget to commit changes to the /build dir?";
+            echo "$REPOSTATUS";
+            exit 1;
+          else
+            echo "The repo file system is clean (build files are present and up to date).";
+          fi
+
+      - name: Run tests
+        run: npm test

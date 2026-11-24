@@ -1,0 +1,37 @@
+version: 2
+updates:
+  - package-ecosystem: 'npm'
+    directory: '/'
+    schedule:
+      interval: 'daily'
+    open-pull-requests-limit: 50
+    labels:
+      - 'Deps'
+      - 'Deps: JavaScript'
+    groups:
+      wordpress-packages:
+        patterns:
+          - '@wordpress/*'
+        exclude-patterns:
+          - '@wordpress/babel-preset-default'
+          - '@wordpress/e2e-test-utils-playwright'
+          - '@wordpress/env'
+          - '@wordpress/eslint-plugin'
+          - '@wordpress/icons'
+          - '@wordpress/scripts'
+
+  - package-ecosystem: 'composer'
+    directory: '/'
+    schedule:
+      interval: 'daily'
+    labels:
+      - 'Deps'
+      - 'Deps: PHP'
+
+  - package-ecosystem: 'github-actions'
+    directory: '/'
+    schedule:
+      interval: 'daily'
+    labels:
+      - 'Deps'
+      - 'Deps: GitHub Actions'
