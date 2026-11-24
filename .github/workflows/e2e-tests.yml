@@ -1,0 +1,80 @@
+name: End-to-end Tests
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: Exact source commit to check
+        type: string
+        required: false
+        default: ''
+  # Run on all pull requests.
+  pull_request:
+  push:
+    branches:
+      - trunk
+
+# Cancels all previous workflow runs for the same branch that have not yet completed.
+concurrency:
+  group: e2e-tests-${{ inputs.ref || github.ref }}-${{ github.event_name }}
+  cancel-in-progress: ${{ inputs.ref == '' }}
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: E2E against WordPress latest
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+
+      - name: Install Composer dependencies
+        uses: ramsey/composer-install@26d8a556604053a9612623447203a691f406fbe6 # v4
+        with:
+          composer-options: --no-dev
+
+      - name: Read .nvmrc
+        run: echo "NODE_VERSION=$(cat .nvmrc)" >> "$GITHUB_ENV"
+
+      - name: Use Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Use npm 11.21.3
+        run: npm install -g --ignore-scripts npm@11.21.3
+
+      - name: Npm install
+        run: |
+          npm ci
+
+      - name: Install Playwright dependencies
+        run: |
+          npx playwright install chromium --with-deps
+
+      - name: Start up WordPress environment
+        run: |
+          npm run dev:start
+
+      - name: Running E2E tests
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+        run: |
+          npm run test:e2e
+
+      - name: Stop WordPress environment
+        run: |
+          npm run dev:stop
+
+      - name: Archive E2E results
+        uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: test-results
+          path: artifacts
